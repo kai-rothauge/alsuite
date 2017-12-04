@@ -1,0 +1,4 @@
+#ifndef ALML_UTILITY_HPP
+#define ALML_UTILITY_HPP
+
+#endif // ALML_UTILITY_HPP
