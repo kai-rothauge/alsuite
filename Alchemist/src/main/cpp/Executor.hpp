@@ -5,8 +5,6 @@
 
 namespace alchemist {
 
-struct LoadlibraryCommand;
-
 struct Executor {
 	boost::mpi::environment & env;
 	boost::mpi::communicator & world;

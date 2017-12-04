@@ -288,6 +288,26 @@ protected:
 	int _value;
 };
 
+struct PointerParameter : Parameter {
+public:
+
+	PointerParameter(string name, int value) :
+		Parameter(name, "p"), _value(value) {}
+
+	~PointerParameter() {}
+
+	void * get_value() const {
+		return _value;
+	}
+
+	string to_string() const {
+		return _value.str();
+	}
+
+protected:
+	void * _value;
+};
+
 struct Parameters {
 public:
 	Parameters() {}
@@ -357,10 +377,10 @@ public:
 	bool get_matrix_handle(string name) const {
 		return std::dynamic_pointer_cast<MatrixHandleParameter> (_parameters.find(name)->second)->get_value();
 	}
-//
-//	void * get_ptr(string name) const {
-//		return static_cast< Parameter<void *> *>(_parameters.find(name)->second)->get_value();
-//	}
+
+	void * get_ptr(string name) const {
+		return std::dynamic_pointer_cast<PointerParameter>(_parameters.find(name)->second)->get_value();
+	}
 
 	string to_string() const {
 		string arg_list = "";

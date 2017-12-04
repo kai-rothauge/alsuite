@@ -3,31 +3,34 @@
 using namespace allib;
 using boost::mpi;
 
-extern "C"
-int load(boost::mpi::environment & env, boost::mpi::communicator & world, boost::mpi::communicator & peers) {
+int AlLib::load(boost::mpi::environment & _env, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) {
 
-	// Still lots to do here
-//	El::Initialize();
+	env = _env;
+	world = _world;
+	peers = _peers;
+
 	bool isDriver = world.rank() == 0;
-	isDriver ? std::cerr << "I am library alLib driver" << std::endl : std::cerr << "I am library alLib worker" << std::endl;
+	if isDriver
+		std::shared_ptr<spdlog::logger> log = allib::start_log("AlLib driver");
+	else
+		std::shared_ptr<spdlog::logger> log = allib::start_log("AlLib worker");
+
 	return 0;
 }
 
-extern "C"
-int unload() {
-	El::Finalize();
+int AlLib::unload() {
+
 	return 0;
 }
 
-extern "C"
-int run(std::string task, Parameters & input, Parameters & output, boost::mpi::environment & env,
-		boost::mpi::communicator & world, boost::mpi::communicator & peers) {
+int AlLib::run(std::string task, Parameters & input, Parameters & output) {
 
 	if (task.compare("kmeans") == 0) {
-		kmeans(input, output, world, peers);
+		KMeans kmeans = new KMeans(input, output);
+
 	}
 	else if (task.compare("svd") == 0) {
-		svd(input, output, world, peers);
+		SVD svd = new SVD(input, output, world, peers);
 	}
 
 	return 0;
