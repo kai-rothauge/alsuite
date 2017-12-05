@@ -17,62 +17,18 @@ import org.apache.spark.SparkConf
 // spark-sql
 import org.apache.spark.sql.SparkSession
 
+import altest.util.{ArgParser, ConsolePrinter}
 import alchemist.Alchemist
-import alchemist.util.{ArgParser, ConsolePrinter => cp}
 import allib.AlLib
 import allib.ml.clustering.{KMeans => alKMeans}
 //import allib.ml.regression._
-//import alchemist.ml.linalg._
 
 object AlTest {
-  
-  def delete(file: File) {
-    if (file.isDirectory) 
-      Option(file.listFiles).map(_.toList).getOrElse(Nil).foreach(delete(_))
-    file.delete
-  }
-  
-  val outputFilePrefix: String = {
-    val dNow: Date = new Date( );
-    val ft: SimpleDateFormat = new SimpleDateFormat("yyyy.MM.dd_HH:mm:ss");
-    
-    val dir: File = new File(outDir + shortName + "_latest/")
-    
-    if (dir.exists()) delete(dir)
-
-    if (dir.mkdir()) {
-      cp.println("Output directory '%s' was created successfully".format(dir))
-      outDir = dir.toString + "/"
-    }
-    else {
-      cp.println("Failed trying to create the directory '%s'".format(dir))
-      cp.printError("Failed trying to create the directory '%s'".format(dir))
-    }
-    cp.println("Output directory set to '%s'".format(outDir))
-    cp.println(" ")
-    
-    outDir + shortName + "_" + ft.format(dNow)
-  }
-  
-  def createOutputWriter(fileName: String): PrintWriter = new PrintWriter(new File(fileName))
-  
-  val logWriter              = createOutputWriter(outputFilePrefix + ".log")
-  val errWriter              = createOutputWriter(outputFilePrefix + ".err")
-  val sparkResultsWriter     = createOutputWriter(outputFilePrefix + "_results_spark.out")
-  val alchemistResultsWriter = createOutputWriter(outputFilePrefix + "_results_alchemist.out")
-  
-  def closeOutputWriters: Unit = {
-
-    logWriter.close()
-    errWriter.close()
-    sparkResultsWriter.close()
-    alchemistResultsWriter.close()
-  }
   
   def main(args: Array[String]) {
 
     if (args.length < 1) {
-      cp.println("AlTest requires 1 or more args, you gave %s, exiting".format(args.length))
+      println("AlTest requires 1 or more args, you gave %s, exiting".format(args.length))
       System.exit(1)
     }
 
@@ -100,16 +56,12 @@ object AlTest {
     }
     val outDir       = parser.getOptionValue[String](OUT_DIR).replace("0x20", " ")
 
-    cp.setColor(consoleColor)
+    val logWriter              = createOutputWriter(outputFilePrefix + ".log")
+    val errWriter              = createOutputWriter(outputFilePrefix + ".err")
+    val sparkResultsWriter     = createOutputWriter(outputFilePrefix + "_results_spark.out")
+    val alchemistResultsWriter = createOutputWriter(outputFilePrefix + "_results_alchemist.out")
     
-//      cp.println(consoleColor)
-//      cp.println(logLevel)
-//      cp.println(shortName)
-//      cp.println(longName)
-
-    createOutputWriters
-    cp.setLogWriter(logWriter)
-    cp.setErrWriter(errWriter)
+    val cp = ConsolePrinter(consoleColor, logWriter, errWriter)
     
 //    cp.println("============= BEGIN TEST RUNNER ==============\n")
     
@@ -118,13 +70,12 @@ object AlTest {
     cp.println("--------------------------------------------------------\n")
     cp.tab
     var t1 = System.nanoTime()
-//    val sc = new SparkContext(new SparkConf().setAppName("TestRunner: " + shortName))
     val appSparkName: String = "Alchemist: " + longName + " Test"
     val spark = SparkSession.builder().appName(appSparkName).getOrCreate()
     cp.println("Time cost of starting Spark session: %6.4fs".format((System.nanoTime() - t1)*1.0E-9))
     cp.println(" ")
     cp.println("spark.conf.getAll:")
-    spark.conf.getAll.foreach(cp.println)
+    spark.conf.getAll.foreach(line => cp.println(line))
     cp.println(" ")
     cp.println("getExecutorMemoryStatus:")
     cp.println(spark.sparkContext.getExecutorMemoryStatus.toString())
@@ -219,5 +170,42 @@ object AlTest {
 //    cp.println("============== END TEST RUNNER ===============\n")
     
     closeOutputWriters
+  }
+  
+  def delete(file: File): Unit = {
+    if (file.isDirectory) 
+      Option(file.listFiles).map(_.toList).getOrElse(Nil).foreach(delete(_))
+    file.delete
+  }
+  
+  val outputFilePrefix: String = {
+    val dNow: Date = new Date( );
+    val ft: SimpleDateFormat = new SimpleDateFormat("yyyy.MM.dd_HH:mm:ss");
+    
+    val dir: File = new File(outDir + shortName + "_latest/")
+    
+    if (dir.exists()) delete(dir)
+
+    if (dir.mkdir()) {
+      cp.println("Output directory '%s' was created successfully".format(dir))
+      outDir = dir.toString + "/"
+    }
+    else {
+      cp.println("Failed trying to create the directory '%s'".format(dir))
+      cp.printError("Failed trying to create the directory '%s'".format(dir))
+    }
+    cp.println("Output directory set to '%s'".format(outDir))
+    cp.println(" ")
+    
+    outDir + shortName + "_" + ft.format(dNow)
+  }
+  
+  def createOutputWriter(fileName: String): PrintWriter = new PrintWriter(new File(fileName))
+  
+  def closeOutputWriters: Unit = {
+    logWriter.close()
+    errWriter.close()
+    sparkResultsWriter.close()
+    alchemistResultsWriter.close()
   }
 }

@@ -1,53 +1,87 @@
-#ifndef ALML_CLUSTERING_HPP
-#define ALML_CLUSTERING_HPP
+#ifndef ALLIB__CLUSTERING_HPP
+#define ALLIB__CLUSTERING_HPP
+
+#include <sys/socket.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <fcntl.h>
+#include <poll.h>
+#include <thread>
+#include <El.hpp>
+#include <stdio.h>
+#include <string>
+#include <iostream>
+#include <eigen3/Eigen/Dense>
+#include <algorithm>
+#include <random>
+#include <vector>
+#include <cmath>
+#include <chrono>
+#include <boost/serialization/serialization.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/base_object.hpp>
+#include <boost/serialization/export.hpp>
+#include <boost/format.hpp>
+#include <boost/random.hpp>
+#include "spdlog/spdlog.h"
+
+namespace allib {
 
 class Clustering {
 public:
-	virtual void initialize() = 0;
-	virtual void train() = 0;
+	virtual int initialize() = 0;
+	virtual int train() = 0;
 };
 
 class KMeans : public Clustering {
 public:
 	KMeans();
-	KMeans(int, int, string, int, double, long);
+	KMeans(uint32_t, uint32_t, double, string, uint32_t, uint64_t);
 
-	int getK();
-	void setK(int k_);
+	uint32_t get_num_centers();
+	void set_num_centers(uint32_t);
 
-	int getMaxIterations();
-	void setMaxIterations(int maxIterations_);
+	uint32_t get_max_iterations();
+	void set_max_iterations(uint32_t);
 
-	string getInitializationMode();
-	void setInitializationMode(string initializationMode_);
+	std::string get_init_mode();
+	void set_init_mode(std::string);
 
-	int getInitializationSteps();
-	void setInitializationSteps(int initializationSteps_);
+	uint32_t get_init_steps();
+	void set_init_steps(uint32_t);
 
-	double getEpsilon();
-	void setEpsilon(double epsilon_);
+	double get_epsilon();
+	void set_epsilon(double);
 
-	long getSeed();
-	void setSeed(long seed_);
+	uint64_t get_seed();
+	void set_seed(uint64_t);
 
-
-	void initialize();
-	void train();
-	void run();
+	int initialize();
+	int train();
+	int run();
 
 private:
-	int k;
-	int maxIterations;
-	string initializationMode;
-	int initializationSteps;
-	double epsilon;
-	long seed;
+	uint32_t num_centers;
+	uint32_t max_iterations;					// How many iteration of Lloyd's algorithm to use at most
+	double epsilon;							// If all the centers change by Euclidean distance less
+											//     than epsilon, then we stop the iterations
+	std::string init_mode;					// Number of initialization steps to use in kmeans||
+	uint32_t init_steps;						// Which initialization method to use to choose
+											//     initial cluster center guesses
+	uint64_t seed;							// Random seed used in driver and workers
 
-	void initialize_random();
-	void initialize_parallel();
+	int initialize_random();
+	int initialize_parallel(DistMatrix const *, MatrixXd const &, uint32_t, MatrixXd &);
+
+	uint32_t update_assignments_and_counts(MatrixXd const &, MatrixXd const &,
+	    uint32_t *, std::vector<uint32_t> &, double &);
+
+	int kmeansPP(std::vector<MatrixXd>, std::vector<double>, MatrixXd &);
 };
 
-#endif // ALML_CLUSTERING_HPP
+}
+
+#endif // ALLIB__CLUSTERING_HPP
 
 
 

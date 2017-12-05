@@ -56,4 +56,4 @@ sbt -batch assembly
 
 echo " "
 echo "Build of Alchemist Suite completed"
-echo "Type 'scala AlTest/target/scala-2.11/altest-assembly-0.1.jar' to run"
+echo "Run 'start_altest.sh'"

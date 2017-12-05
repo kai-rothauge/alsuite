@@ -1,5 +1,6 @@
 package allib
 
+import allib.util.ConsolePrinter
 import alchemist._
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.DenseVector

@@ -18,8 +18,8 @@ struct Library {
 	virtual int run(std::string, Parameters &, Parameters &) = 0;
 };
 
-typedef Library* create_t();
-typedef void destroy_t(Library*);
+typedef Library * open_t();
+typedef void close_t(Library *);
 
 }
 

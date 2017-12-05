@@ -1,7 +1,7 @@
 package allib.ml.clustering
 
 import allib._
-import alchemist.Alchemist
+import alchemist.{Alchemist, Parameters}
 import org.apache.spark.mllib.linalg.distributed.{IndexedRow, IndexedRowMatrix}
  
 object KMeans {

@@ -1,9 +1,24 @@
 #ifndef ALCHEMIST__EXECUTOR_HPP
 #define ALCHEMIST__EXECUTOR_HPP
 
+#include <dlfcn.h>
 #include "data_stream.hpp"
+#include "Library.hpp"
 
 namespace alchemist {
+
+struct LibraryInfo {
+
+	LibraryInfo(std::string _name, std::string _path, void * _lib_ptr, Library * _lib) :
+		name(_name), path(_path), lib_ptr(_lib_ptr), lib(_lib) {}
+
+	std::string name;
+	std::string path;
+
+	void * lib_ptr;
+
+	Library * lib;
+};
 
 struct Executor {
 	boost::mpi::environment & env;
@@ -12,7 +27,7 @@ struct Executor {
 
 	std::shared_ptr<spdlog::logger> log;
 
-	std::map<std::string, void *> libraries;
+	std::map<std::string, LibraryInfo> libraries;
 
 	Executor(boost::mpi::environment & _env, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) :
 		env(_env), world(_world), peers(_peers) {}
@@ -44,7 +59,7 @@ struct Driver : Executor {
 
 	Driver(boost::mpi::environment & _env, boost::mpi::communicator & _world, boost::mpi::communicator & _peers,
 			std::istream & is, std::ostream & os);
-	void issue(const Command &cmd);
+
 	MatrixHandle register_matrix(size_t num_rows, size_t num_cols);
 
 	int run();
@@ -75,7 +90,7 @@ struct Worker : Executor {
 	El::Grid grid;
 	std::map<MatrixHandle, std::unique_ptr<DistMatrix> > matrices;
 
-	Worker(boost::mpi::environment & _env, boost::mpi::communicator & _world, boost::mpi::communicator & _peers);
+	Worker(boost::mpi::environment &, boost::mpi::communicator &, boost::mpi::communicator &);
 
 	int run();
 
@@ -89,7 +104,8 @@ struct Worker : Executor {
 	int read_HDF5();
 
 	int receive_matrix_blocks(MatrixHandle handle);
-	int send_matrix_rows(MatrixHandle handle, size_t num_cols, const std::vector<WorkerId> & layout, const std::vector<uint64_t> & local_row_indices, const std::vector<double> & local_data);
+	int send_matrix_rows(MatrixHandle handle, size_t num_cols, const std::vector<WorkerId> & layout,
+			const std::vector<uint64_t> & local_row_indices, const std::vector<double> & local_data);
 };
 
 }

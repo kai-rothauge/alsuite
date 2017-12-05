@@ -1,8 +1,5 @@
 #include "Executor.hpp"
 
-using Eigen::MatrixXd;
-using Eigen::VectorXd;
-
 namespace alchemist {
 
 using namespace El;
@@ -23,24 +20,24 @@ int Executor::load_library(std::string args) {
 
 	log->info("Loading library {} located at {}", library_name, library_path);
 
-	void * l = dlopen(cstr, RTLD_NOW);
-	if (l == NULL) {
+	void * lib = dlopen(library_path.c_str(), RTLD_NOW);
+	if (lib == NULL) {
 		log->info("dlopen failed: {}", dlerror());
 		return -1;
 	}
 
-    libraries.insert(std::make_pair(library_name, l));
+	dlerror();			// Reset errors
 
-    	void * f = dlsym(libraries.find(library_name)->second, "load");
-    	if (f == NULL) {
+    open_t* open_library = (open_t*) dlsym(lib, "open");
+    const char* dlsym_error = dlerror();
+    	if (dlsym_error) {
     		log->info("dlsym with command \"load\" failed: {}", dlerror());
     		return -1;
     	}
 
-    	typedef int (*load_t)(const boost::mpi::environment &, const boost::mpi::communicator &, const boost::mpi::communicator &);
+    	Library * library = open_library();
 
-    	load_t load_f = (load_t) f;
-    	load_f(env, world, peers);
+    	libraries.insert(std::make_pair(library_name, LibraryInfo(library_name, library_path, lib, library)));
 
     	log->info("Library {} loaded", library_name);
 
@@ -68,20 +65,9 @@ int Executor::run_task(std::string args, Parameters & output_parameters) {
 		deserialize_parameters(input_parameter, input_parameters);
 	}
 
-	void * lib = libraries.find(library_name)->second;
-
 	log->info("Calling {}::run with '{}'", library_name, task_name);
 
-	void * f = dlsym(lib, "run");
-	if (f == NULL) {
-		printf("dlopen failed: %s\n", dlerror());
-		return -1;
-	}
-
-	typedef int (*run_t)(std::string, const Parameters &, Parameters &, boost::mpi::environment &, boost::mpi::communicator &, boost::mpi::communicator &);
-
-	run_t run_f = (run_t) f;
-	run_f(task_name, input_parameters, output_parameters, env, world, peers);
+	libraries.find(library_name)->second.lib->run(task_name, input_parameters, output_parameters);
 
 	log->info("Finished call to {}::run with '{}'", library_name, task_name);
 
@@ -90,7 +76,20 @@ int Executor::run_task(std::string args, Parameters & output_parameters) {
 
 int Executor::unload_libraries() {
 
-	for (auto const & lib : libraries) dlclose(lib.second);
+	for (auto const & library : libraries) {
+
+		log->info("Closing library {}", library.second.name);
+
+	    close_t* close_library = (close_t*) dlsym(library.second.lib_ptr, "close");
+	    const char* dlsym_error = dlerror();
+	    	if (dlsym_error) {
+	    		log->info("dlsym with command \"close\" failed: {}", dlerror());
+	    		return -1;
+	    	}
+
+	    	close_library(library.second.lib);
+	    	dlclose(library.second.lib_ptr);
+	}
 
 	return 0;
 }
@@ -134,9 +133,6 @@ void Executor::deserialize_parameters(std::string input_parameter, Parameters & 
 }
 
 std::string Executor::serialize_parameters(const Parameters & output) const {
-
-	for (auto iter = libraries.begin(); iter != libraries.end(); ++iter)
-		dlclose(iter->second);
 
 	return output.to_string();
 }

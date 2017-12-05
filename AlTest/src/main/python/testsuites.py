@@ -5,13 +5,12 @@ import sys
 import json
 from subprocess import Popen, PIPE
 
-from __init__ import PROJ_DIR, TEST_DIR
+from __init__ import PROJ_DIR, CONFIG_DIR
 from commands import run_cmd, SBT_CMD
 from utils import OUTPUT_DIVIDER_STRING, append_config_to_file, stats_for_results
 
 
 test_env = os.environ.copy()
-TEST_DIR = PROJ_DIR + "/test"
 
 class Tests(object):
     
@@ -27,9 +26,9 @@ class Tests(object):
     def build(cls):
 #         run_cmd("cd %s/test" % PROJ_DIR)
 #         run_cmd("%s -Dspark.version=%s.0 clean assembly" % (SBT_CMD, spark_version))
-        run_cmd("cd %s/.." % TEST_DIR, 0)
+        run_cmd("cd %s/.." % CONFIG_DIR, 0)
         run_cmd("sbt -build assembly", 0)
-        run_cmd("cd %s" % TEST_DIR, 0)
+        run_cmd("cd %s" % CONFIG_DIR, 0)
 
     @classmethod
     def is_built(cls):

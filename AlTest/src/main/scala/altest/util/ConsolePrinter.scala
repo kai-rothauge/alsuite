@@ -1,4 +1,4 @@
-package alchemist.util
+package altest.util
 
 import java.io.PrintWriter
 

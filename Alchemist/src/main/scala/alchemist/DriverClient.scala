@@ -27,7 +27,7 @@ class DriverClient(val istream: InputStream, val ostream: OutputStream) {
   val output = new DataOutputStream(ostream)
   
   var workerCount: Int = 0
-  val workerIds: Array[WorkerId] = _
+  var workerIds: Array[WorkerId] = _
   var workerInfo: Array[WorkerInfo] = _
 
   def handshake(): this.type = {
@@ -177,8 +177,8 @@ class DriverClient(val istream: InputStream, val ostream: OutputStream) {
 
   def readHDF5(fname: String, varname: String) : MatrixHandle = {
     output.writeInt(0x11)
-    output.writeString(fname)
-    output.writeString(varname)
+    output.sendString(fname)
+    output.sendString(varname)
     output.flush()
 
     if (input.readInt() != 0x1) {

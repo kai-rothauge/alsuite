@@ -42,8 +42,9 @@ class Driver {
         new ProcessBuilder("mpirun", "-q", "-np", "3", sys.env("ALCHEMIST_EXE"), "localhost", 
             listenSock.getLocalPort().toString())
       }
-      pb.redirectError(ProcessBuilder.Redirect.INHERIT).start
     }
+    pb.redirectError(ProcessBuilder.Redirect.INHERIT).start
+  }
     
   val driverSock = listenSock.accept()
   System.err.println(s"Alchemist.Driver: Accepting connection from Alchemist driver on socket")

@@ -153,9 +153,9 @@ class KMeansTest(spark: SparkSession, al: Alchemist) extends ClusteringTest(spar
     
     var t1 = System.nanoTime()
     val clusters = sparkKMeans.train(labelVecRDD.map(pair => pair._2), k, numIterations, "k-means||", seed)
-    val broadcast_clusters = sc.broadcast(clusters)
+    val broadcastClusters = sc.broadcast(clusters)
     val labels: Array[String] = labelVecRDD
-            .map(pair => (pair._1, broadcast_clusters.value.predict(pair._2)))
+            .map(pair => (pair._1, broadcastClusters.value.predict(pair._2)))
             .map(pair => pair._1.toString + " " + pair._2.toString)
             .collect()
     

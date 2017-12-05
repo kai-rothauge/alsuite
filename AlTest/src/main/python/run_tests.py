@@ -5,33 +5,33 @@ import imp
 import os
 import logging
 
-from __init__ import PROJ_DIR, TEST_DIR
+from __init__ import PROJ_DIR, CONFIG_DIR
 from commands import *
 from testsuites import *
 
 
-logger = logging.getLogger("alchemistperf")
+logger = logging.getLogger("altest")
 logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler())
 
-parser = argparse.ArgumentParser(description='Run Alchemist performance tests. Before running, '
+parser = argparse.ArgumentParser(description='Run AlTest. Before running, '
     'edit the supplied configuration file.')
 
 parser.add_argument('--config-file', help='override default location of config file, must be a '
-    'python file that ends in .py', default="%s/config/config.py" % TEST_DIR)
+    'python file that ends in .py', default="%s/config.py" % CONFIG_DIR)
 
 parser.add_argument('--additional-make-distribution-args',
-    help='additional arugments to pass to make-distribution.sh when building Spark', default="")
+    help='additional arguments to pass to make-distribution.sh when building Spark', default="")
 
 args = parser.parse_args()
 assert args.config_file.endswith(".py"), "config filename must end with .py"
 
 # Check if the config file exists.
 assert os.path.isfile(args.config_file), ("Please create a config file called %s (you probably "
-    "just want to copy and then modify %s/config/config.py.template)" %
-    (args.config_file, TEST_DIR))
+    "just want to copy and then modify %s/config.py.template)" %
+    (args.config_file, CONFIG_DIR))
 
-print("Detected project directory: %s" % PROJ_DIR)
+print("Project directory: %s" % PROJ_DIR)
 # Import the configuration settings from the config file.
 print("Loading configuration from %s" % args.config_file)
 with open(args.config_file) as cf:
@@ -83,13 +83,12 @@ should_prep_tests = run_tests and config.PREP_TESTS
 #     # Ensure all shutdowns have completed (no executors are running).
 #     cluster.ensure_spark_stopped_on_slaves()
 
-print("Building Alchemist Tests")
+print("Building AlTest")
 Tests.initialize(config)
 if should_prep_tests:
     Tests.build()
 elif run_tests:
-    assert Tests.is_built(), ("You tried to skip packaging the Alchemist perf " +
-        "tests, but %s was not already present") % Tests.test_jar_path
+    assert Tests.is_built(), "You tried to skip packaging the AlTest, but %s was not already present" % Tests.test_jar_path
 
 if run_tests:
     Tests.run()

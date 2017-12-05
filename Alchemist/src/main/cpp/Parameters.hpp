@@ -4,6 +4,7 @@
 #include <string>
 #include <map>
 #include <memory>
+#include <sstream>
 
 using std::string;
 
@@ -291,7 +292,7 @@ protected:
 struct PointerParameter : Parameter {
 public:
 
-	PointerParameter(string name, int value) :
+	PointerParameter(string name, void * value) :
 		Parameter(name, "p"), _value(value) {}
 
 	~PointerParameter() {}
@@ -301,7 +302,9 @@ public:
 	}
 
 	string to_string() const {
-		return _value.str();
+		std::stringstream ss;
+		ss << _value;
+		return ss.str();
 	}
 
 protected:

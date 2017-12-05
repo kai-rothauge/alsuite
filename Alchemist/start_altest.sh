@@ -12,4 +12,7 @@ export ALLIB_DYLIB=$ALLIB_ROOT/target/allib.dylib
 
 cp target/alchemist ../AlTest/lib
 
-scala ../AlTest/target/scala-2.11/altest-assembly-0.1.jar
+# scala ../AlTest/target/scala-2.11/altest-assembly-0.1.jar
+
+export PYTHONPATH="$ALTEST_ROOT/src/main/python/:$PYTHONPATH"
+/usr/bin/env python "$ALTEST_ROOT/src/main/python/run_tests.py" "$@"

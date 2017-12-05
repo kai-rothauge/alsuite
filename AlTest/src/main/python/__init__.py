@@ -1,4 +1,4 @@
 import os
 
-PROJ_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
-TEST_DIR = PROJ_DIR + "/test"
+PROJ_DIR   = os.path.abspath(os.environ.get('ALTEST_ROOT'))
+CONFIG_DIR = os.path.join(os.environ.get('ALTEST_ROOT'), "config")

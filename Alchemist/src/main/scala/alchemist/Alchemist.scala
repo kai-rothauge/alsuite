@@ -2,6 +2,17 @@ package alchemist
 
 import alchemist.io._
 
+// spark-core
+import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext._
+import org.apache.spark.SparkConf
+// spark-sql
+import org.apache.spark.sql.SparkSession
+// spark-mllib
+import org.apache.spark.mllib.linalg.distributed.{IndexedRow, IndexedRowMatrix}
+import scala.math.max
+
+
 class MatrixHandle(val id: Int) extends Serializable { }
 
 class AlchemistContext(client: DriverClient) extends Serializable {
@@ -28,7 +39,7 @@ object Alchemist {
 
 //  def stop(): Unit = driver.stop
   
-  def create(_sc: SparkContext): Unit {
+  def create(_sc: SparkContext): Unit = {
     sc = _sc
   }
 
@@ -54,7 +65,7 @@ object Alchemist {
       val maxWorkerId = relevantWorkers.map(node => node.id).max
       var nodeClients = Array.fill(maxWorkerId+1)(None: Option[WorkerClient])
       System.err.println(s"Connecting to ${relevantWorkers.length} workers")
-      relevantWorkers.foreach(node => nodeClients(node.id) = Some(ctx.connectWorker(node)))
+      relevantWorkers.foreach(node => nodeClients(node.id) = Some(context.connectWorker(node)))
       System.err.println(s"Successfully connected to all workers")
 
       // TODO: randomize the order the rows are sent in to avoid queuing issues?
@@ -73,19 +84,19 @@ object Alchemist {
           })
       Iterator.single(true)
     }.count
-    client.newMatrixFinish(handle)
     handle
   }
   
   // Caches result by default, because may not want to recreate (e.g. if delete referenced matrix on Alchemist side to save memory)
-  def getIndexedRowMatrix(handle: MatrixHandle, sc: SparkContext): IndexedRowMatrix = {
+  def getIndexedRowMatrix(handle_ID: Int): IndexedRowMatrix = {
+    val handle = new MatrixHandle(handle_ID)
     val (numRows, numCols) = getDimensions(handle)
     // TODO:
     // should map the rows back to the executors using locality information if possible
     // otherwise shuffle the rows on the MPI side before sending them back to SPARK
-    val numPartitions = max(al.sc.defaultParallelism, al.client.workerCount)
-    val sacrificialRDD = al.sc.parallelize(0 until numRows.toInt, numPartitions)
-    val layout: Array[WorkerId] = (0 until sacrificialRDD.partitions.size).map(x => new WorkerId(x % al.client.workerCount)).toArray
+    val numPartitions = max(sc.defaultParallelism, client.workerCount)
+    val sacrificialRDD = sc.parallelize(0 until numRows.toInt, numPartitions)
+    val layout: Array[WorkerId] = (0 until sacrificialRDD.partitions.size).map(x => new WorkerId(x % client.workerCount)).toArray
     val fullLayout: Array[WorkerId] = (layout zip sacrificialRDD.mapPartitions(iter => Iterator.single(iter.size), true)
                                           .collect())
                                           .flatMap{ case (workerid, partitionSize) => Array.fill(partitionSize)(workerid) }
@@ -111,7 +122,7 @@ object Alchemist {
 
   def transpose(handle: MatrixHandle): MatrixHandle = client.getTranspose(handle)
   
-  def matrixMultiply(handleA: MatrixHandle, handleB: MatrixHandle): AlMatrix = client.matrixMultiply(handleA, handleB)
+  def matrixMultiply(handleA: MatrixHandle, handleB: MatrixHandle): MatrixHandle = client.matrixMultiply(handleA, handleB)
     
   def stop() = driver.stop()
 }
