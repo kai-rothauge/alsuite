@@ -7,12 +7,24 @@ using boost::mpi;
 
 namespace allib {
 
-KMeans::KMeans() : num_centers(2), max_iterations(20), epsilon(1e-4), init_mode("kmeans||"), init_steps(2), seed(10) { }
+KMeans::KMeans() : num_centers(2), max_iterations(20), epsilon(1e-4), init_mode("kmeans||"), init_steps(2), seed(10), data_matrix(nullptr) { }
 
 KMeans::KMeans(uint32_t _num_centers, uint32_t _max_iterations, double _epsilon, std::string _init_mode,
 			uint32_t _init_steps, uint64_t _seed) :
 		num_centers(_num_centers), max_iterations(_max_iterations), epsilon(_epsilon), init_mode(_init_mode),
-		init_steps(_init_steps), seed(_seed) { }
+		init_steps(_init_steps), seed(_seed), data_matrix(nullptr)
+{
+	if (epsilon < 0.0 || epsilon > 1.0) {
+		log->error("Unreasonable change threshold in k-means: {}", epsilon);
+		epsilon = 1e-4;
+		log->error("Change threshold changed to default value {}", 1e-4);
+	}
+
+	if strcmp(init_mode, "kmeans||") {
+		init_mode = "kmeans||";
+		log->warn("Sorry, only k-means|| initialization has been implemented, so ignoring your choice of method {}", init_mode);
+	}
+}
 
 uint32_t KMeans::get_num_centers() {
 	return num_centers;
@@ -62,22 +74,12 @@ void KMeans::set_seed(uint64_t) {
 	seed = _seed;
 }
 
-void KMeans::set_log(log);
-		kmeans.set_world(world);
-		kmeans.set_peers(peers);
-
 int KMeans::initialize() {
 	strcmp(init_mode, "random") ? initialize_random() : initialize_parallel();
 }
 
-int KMeans::train() {
-
-}
-
 int KMeans::run() {
-
-
-
+	train();
 }
 
 uint32_t KMeans::update_assignments_and_counts(MatrixXd const & dataMat, MatrixXd const & centers,
@@ -103,6 +105,11 @@ uint32_t KMeans::update_assignments_and_counts(MatrixXd const & dataMat, MatrixX
 	}
 
 	return numChanged;
+}
+
+
+void set_data_matrix(DistMatrix * _data) {
+	data_matrix = _data;
 }
 
 int KMeans::initialize_random {
@@ -313,36 +320,26 @@ int KMeans::kmeansPP(std::vector<MatrixXd> points, std::vector<double> weights, 
 	return 0;
 }
 
-int KMeans::run() {
-	initialize();
-	train();
-}
-
-int KMeans::train() {
+int KMeans::train(Parameters & output) {
 
 	bool isDriver = world.rank() == 0;
 	if isDriver {
 
-		auto log = start_log("AlLib driver");
+		log->info("Starting K-Means on matrix {}", inputMat);
+		log->info("Settings:");
+		log->info("    num_centers = {}", num_centers);
+		log->info("    max_iterations = {}", max_iterations);
+		log->info("    epsilon = {}", epsilon);
+		log->info("    init_method = {}", init_method);
+		log->info("    init_steps = {}", init_steps);
+		log->info("    seed = {}", seed);
 
-		log->info("Starting K-means on matrix {}", inputMat);
-		log->info("num_centers = {}, max_iterations = {}, epsilon = {}, init_method = {}, init_steps = {}, seed = {}",
-		num_centers, max_iterations, epsilon, init_method, init_steps, seed);
+//		auto n = matrices[inputMat].numRows;
+//		auto d = matrices[inputMat].numCols;
+//		MatrixHandle centersHandle = this->registerMatrix(num_centers, d);
+//		MatrixHandle assignmentsHandle = this->registerMatrix(n, 1);
 
-		if (epsilon < 0.0 || epsilon > 1.0) {
-			log->error("Unreasonable change threshold in k-means: {}", changeThreshold);
-			abort();
-		}
-		if (method != 1) {
-			log->warn("Sorry, only k-means|| initialization has been implemented, so ignoring your choice of method {}", method);
-		}
-
-		auto n = matrices[inputMat].numRows;
-		auto d = matrices[inputMat].numCols;
-		MatrixHandle centersHandle = this->registerMatrix(num_centers, d);
-		MatrixHandle assignmentsHandle = this->registerMatrix(n, 1);
-		KMeansCommand cmd(inputMat, num_centers, method, initSteps, changeThreshold, seed, centersHandle, assignmentsHandle);
-		issue(cmd); // initial call initializes stuff and waits for next command
+		mpi::broadcast(world, 0x1, 0);
 
 		/******** START of kmeans|| initialization ********/
 		std::mt19937 gen(seed);
@@ -389,7 +386,7 @@ int KMeans::train() {
 
 		uint32_t command = 1; // do another iteration
 		while (centersMovedQ && numIters++ < max_iterations)  {
-			log->info("Starting iteration {} of Lloyd's algorithm, {} percentage changed in last iter",
+			log->info("Starting iteration {} of Lloyd's algorithm, {} percentage changed in last iteration",
 			numIters, percentAssignmentsChanged*100);
 			numChanged = 0;
 			for(uint32_t clusterIdx = 0; clusterIdx < num_centers; clusterIdx++)
@@ -424,157 +421,158 @@ int KMeans::train() {
 		/******** END of Lloyd's iterations ********/
 
 		log->info("Finished Lloyd's algorithm: took {} iterations, final objective value {}", numIters, objVal);
-		output.writeInt(0x1);
-		output.writeInt(assignmentsHandle.id);
-		output.writeInt(centersHandle.id);
-		output.writeInt(numIters);
-		output.flush();
-		}
-
+		output.add(new IntParameter("num_iterations", numIters));
+		output.add(new DoubleParameter("objective_value", objVal));
 	}
 	else {
 
-		log->info("Started kmeans");
-		auto origDataMat = matrices[origMat].get();
-		auto n = origDataMat->Height();
-		auto d = origDataMat->Width();
+		int command;
+		mpi::broadcast(world, command, 0);
 
-		// relayout matrix if needed so that it is in row-partitioned format
-		// cf http://libelemental.org/pub/slides/ICS13.pdf slide 19 for the cost of redistribution
-		auto distData = origDataMat->DistData();
-		DistMatrix * dataMat = new El::DistMatrix<double, El::MD, El::STAR, El::ELEMENT>(n, d, grid);
-		if (distData.colDist == El::MD && distData.rowDist == El::STAR) {
-			dataMat = origDataMat;
-		} else {
-			auto relayoutStart = std::chrono::system_clock::now();
-			El::Copy(*origDataMat, *dataMat); // relayouts data so it is row-wise partitioned
-			std::chrono::duration<double, std::milli> relayoutDuration(std::chrono::system_clock::now() - relayoutStart);
-			log->info("Detected matrix is not row-partitioned, so relayouted to row-partitioned; took {} ms ", relayoutDuration.count());
-		}
+		if (command == 0x1) {
+			log->info("Started K-Means");
+			auto origDataMat = matrices[origMat].get();
+			auto n = origDataMat->Height();
+			auto d = origDataMat->Width();
 
-		// TODO: store these as local matrices on the driver
-		DistMatrix * centers = new El::DistMatrix<double, El::MD, El::STAR, El::ELEMENT>(num_centers, d, grid);
-		DistMatrix * assignments = new El::DistMatrix<double, El::MD, El::STAR, El::ELEMENT>(n, 1, grid);
-		ENSURE(matrices.insert(std::make_pair(centersHandle, std::unique_ptr<DistMatrix>(centers))).second);
-		ENSURE(matrices.insert(std::make_pair(assignmentsHandle, std::unique_ptr<DistMatrix>(assignments))).second);
-
-		MatrixXd localData(dataMat->LocalHeight(), d);
-
-		// compute the map from local row indices to the row indices in the global matrix
-		// and populate the local data matrix
-
-		std::vector<El::Int> rowMap(localData.rows());
-		for(El::Int rowIdx = 0; rowIdx < n; ++rowIdx)
-			if (dataMat->IsLocalRow(rowIdx)) {
-				auto localRowIdx = dataMat->LocalRow(rowIdx);
-				rowMap[localRowIdx] = rowIdx;
-				for(El::Int colIdx = 0; colIdx < d; ++colIdx)
-					localData(localRowIdx, colIdx) = dataMat->GetLocal(localRowIdx, colIdx);
+			// relayout matrix if needed so that it is in row-partitioned format
+			// cf http://libelemental.org/pub/slides/ICS13.pdf slide 19 for the cost of redistribution
+			auto distData = origDataMat->DistData();
+			DistMatrix * dataMat = new El::DistMatrix<double, El::MD, El::STAR, El::ELEMENT>(n, d, grid);
+			if (distData.colDist == El::MD && distData.rowDist == El::STAR) {
+				dataMat = origDataMat;
+			} else {
+				auto relayoutStart = std::chrono::system_clock::now();
+				El::Copy(*origDataMat, *dataMat); // relayouts data so it is row-wise partitioned
+				std::chrono::duration<double, std::milli> relayoutDuration(std::chrono::system_clock::now() - relayoutStart);
+				log->info("Detected matrix is not row-partitioned, so relayouted to row-partitioned; took {} ms ", relayoutDuration.count());
 			}
 
-		MatrixXd clusterCenters(num_centers, d);
-		MatrixXd oldClusterCenters(num_centers, d);
+			// TODO: store these as local matrices on the driver
+			DistMatrix * centers = new El::DistMatrix<double, El::MD, El::STAR, El::ELEMENT>(num_centers, d, grid);
+			DistMatrix * assignments = new El::DistMatrix<double, El::MD, El::STAR, El::ELEMENT>(n, 1, grid);
+//			ENSURE(matrices.insert(std::make_pair(centersHandle, std::unique_ptr<DistMatrix>(centers))).second);
+//			ENSURE(matrices.insert(std::make_pair(assignmentsHandle, std::unique_ptr<DistMatrix>(assignments))).second);
 
-		// initialize centers using kMeans||
-		uint32_t scale = 2*num_centers;
-		clusterCenters.setZero();
-		kmeansParallelInit(self, dataMat, localData, scale, initSteps, clusterCenters, seed);
+			MatrixXd localData(dataMat->LocalHeight(), d);
 
-		// TODO: allow to initialize k-means randomly
-		//MatrixXd clusterCenters = MatrixXd::Random(num_centers, d);
+			// compute the map from local row indices to the row indices in the global matrix
+			// and populate the local data matrix
 
-		/******** START Lloyd's iterations ********/
-		// compute the local cluster assignments
-		std::unique_ptr<uint32_t[]> counts{new uint32_t[num_centers]};
-		std::vector<uint32_t> rowAssignments(localData.rows());
-		VectorXd distanceSq(num_centers);
-		double objVal;
-
-		update_assignments_and_counts(localData, clusterCenters, counts.get(), rowAssignments, objVal);
-
-		MatrixXd centersBuf(num_centers, d);
-		std::unique_ptr<uint32_t[]> countsBuf{new uint32_t[num_centers]};
-		uint32_t numChanged = 0;
-		oldClusterCenters = clusterCenters;
-
-		while(true) {
-			uint32_t nextCommand;
-			mpi::broadcast(world, nextCommand, 0);
-
-			if (nextCommand == 0xf)  // finished iterating
-				break;
-			else if (nextCommand == 2) { // encountered an empty cluster, so randomly pick a point in the dataset as that cluster's centroid
-				uint32_t clusterIdx, rowIdx;
-				mpi::broadcast(world, clusterIdx, 0);
-				mpi::broadcast(world, rowIdx, 0);
+			std::vector<El::Int> rowMap(localData.rows());
+			for(El::Int rowIdx = 0; rowIdx < n; ++rowIdx)
 				if (dataMat->IsLocalRow(rowIdx)) {
 					auto localRowIdx = dataMat->LocalRow(rowIdx);
-					clusterCenters.row(clusterIdx) = localData.row(localRowIdx);
+					rowMap[localRowIdx] = rowIdx;
+					for(El::Int colIdx = 0; colIdx < d; ++colIdx)
+						localData(localRowIdx, colIdx) = dataMat->GetLocal(localRowIdx, colIdx);
 				}
-				mpi::broadcast(peers, clusterCenters, peers.rank());
-				updateAssignmentsAndCounts(localData, clusterCenters, counts.get(), rowAssignments, objVal);
-				world.barrier();
-				continue;
-			}
 
-			/******** do a regular Lloyd's iteration ********/
+			MatrixXd clusterCenters(num_centers, d);
+			MatrixXd oldClusterCenters(num_centers, d);
 
-			// update the centers
-			// TODO: locally compute cluster sums and place in clusterCenters
-			oldClusterCenters = clusterCenters;
+			// initialize centers using kMeans||
+			uint32_t scale = 2*num_centers;
 			clusterCenters.setZero();
-			for(uint32_t rowIdx = 0; rowIdx < localData.rows(); ++rowIdx)
-				clusterCenters.row(rowAssignments[rowIdx]) += localData.row(rowIdx);
+			kmeansParallelInit(self, dataMat, localData, scale, initSteps, clusterCenters, seed);
 
-			mpi::all_reduce(peers, clusterCenters.data(), num_centers*d, centersBuf.data(), std::plus<double>());
-			std::memcpy(clusterCenters.data(), centersBuf.data(), num_centers*d*sizeof(double));
-			mpi::all_reduce(peers, counts.get(), num_centers, countsBuf.get(), std::plus<uint32_t>());
-			std::memcpy(counts.get(), countsBuf.get(), num_centers*sizeof(uint32_t));
+			// TODO: allow to initialize k-means randomly
+			//MatrixXd clusterCenters = MatrixXd::Random(num_centers, d);
 
-			for(uint32_t rowIdx = 0; rowIdx < num_centers; ++rowIdx)
-				if( counts[rowIdx] > 0)
-					clusterCenters.row(rowIdx) /= counts[rowIdx];
+			/******** START Lloyd's iterations ********/
+			// compute the local cluster assignments
+			std::unique_ptr<uint32_t[]> counts{new uint32_t[num_centers]};
+			std::vector<uint32_t> rowAssignments(localData.rows());
+			VectorXd distanceSq(num_centers);
+			double objVal;
 
-			// compute new local assignments
-			numChanged = updateAssignmentsAndCounts(localData, clusterCenters, counts.get(), rowAssignments, objVal);
-			std::cerr << "computed Updated assingments\n" << std::flush;
+			update_assignments_and_counts(localData, clusterCenters, counts.get(), rowAssignments, objVal);
 
-			// return the number of changed assignments
-			mpi::reduce(world, numChanged, std::plus<int>(), 0);
-			// return the cluster counts
-			mpi::reduce(world, counts.get(), num_centers, std::plus<uint32_t>(), 0);
-			std::cerr << "returned cluster counts\n" << std::flush;
-			if (world.rank() == 1) {
-				bool movedQ = (clusterCenters - oldClusterCenters).rowwise().norm().minCoeff() > changeThreshold;
-				world.send(0, 0, movedQ);
+			MatrixXd centersBuf(num_centers, d);
+			std::unique_ptr<uint32_t[]> countsBuf{new uint32_t[num_centers]};
+			uint32_t numChanged = 0;
+			oldClusterCenters = clusterCenters;
+
+			while (true) {
+				uint32_t nextCommand;
+				mpi::broadcast(world, nextCommand, 0);
+
+				if (nextCommand == 0xf)  // finished iterating
+					break;
+				else if (nextCommand == 2) { // encountered an empty cluster, so randomly pick a point in the dataset as that cluster's centroid
+					uint32_t clusterIdx, rowIdx;
+					mpi::broadcast(world, clusterIdx, 0);
+					mpi::broadcast(world, rowIdx, 0);
+					if (dataMat->IsLocalRow(rowIdx)) {
+						auto localRowIdx = dataMat->LocalRow(rowIdx);
+						clusterCenters.row(clusterIdx) = localData.row(localRowIdx);
+					}
+					mpi::broadcast(peers, clusterCenters, peers.rank());
+					updateAssignmentsAndCounts(localData, clusterCenters, counts.get(), rowAssignments, objVal);
+					world.barrier();
+					continue;
+				}
+
+				/******** do a regular Lloyd's iteration ********/
+
+				// update the centers
+				// TODO: locally compute cluster sums and place in clusterCenters
+				oldClusterCenters = clusterCenters;
+				clusterCenters.setZero();
+				for(uint32_t rowIdx = 0; rowIdx < localData.rows(); ++rowIdx)
+					clusterCenters.row(rowAssignments[rowIdx]) += localData.row(rowIdx);
+
+				mpi::all_reduce(peers, clusterCenters.data(), num_centers*d, centersBuf.data(), std::plus<double>());
+				std::memcpy(clusterCenters.data(), centersBuf.data(), num_centers*d*sizeof(double));
+				mpi::all_reduce(peers, counts.get(), num_centers, countsBuf.get(), std::plus<uint32_t>());
+				std::memcpy(counts.get(), countsBuf.get(), num_centers*sizeof(uint32_t));
+
+				for(uint32_t rowIdx = 0; rowIdx < num_centers; ++rowIdx)
+					if( counts[rowIdx] > 0)
+						clusterCenters.row(rowIdx) /= counts[rowIdx];
+
+				// compute new local assignments
+				numChanged = update_assignments_and_counts(localData, clusterCenters, counts.get(), rowAssignments, objVal);
+				log->info("Updated assignments");
+
+				// return the number of changed assignments
+				mpi::reduce(world, numChanged, std::plus<int>(), 0);
+				// return the cluster counts
+				mpi::reduce(world, counts.get(), num_centers, std::plus<uint32_t>(), 0);
+				log->info("Returned cluster counts");
+				if (world.rank() == 1) {
+					bool movedQ = (clusterCenters - oldClusterCenters).rowwise().norm().minCoeff() > changeThreshold;
+					world.send(0, 0, movedQ);
+				}
 			}
+
+			// write the final k-means centers and assignments
+			auto startKMeansWrite = std::chrono::system_clock::now();
+			El::Zero(*assignments);
+			assignments->Reserve(localData.rows());
+			for(El::Int rowIdx = 0; rowIdx < localData.rows(); ++rowIdx)
+				assignments->QueueUpdate(rowMap[rowIdx], 0, rowAssignments[rowIdx]);
+			assignments->ProcessQueues();
+
+			El::Zero(*centers);
+			centers->Reserve(centers->LocalHeight()*d);
+			for(uint32_t clusterIdx = 0; clusterIdx < num_centers; ++clusterIdx)
+				if (centers->IsLocalRow(clusterIdx)) {
+					for(El::Int colIdx = 0; colIdx < d; ++colIdx)
+						centers->QueueUpdate(clusterIdx, colIdx, clusterCenters(clusterIdx, colIdx));
+				}
+			centers->ProcessQueues();
+			std::chrono::duration<double, std::milli> kMeansWrite_duration(std::chrono::system_clock::now() - startKMeansWrite);
+			log->info("Writing the k-means centers and assignments took {}", kMeansWrite_duration.count());
+
+			mpi::reduce(world, objVal, std::plus<double>(), 0);
+			world.barrier();
+
+			output.add(new PointerParameter("assignments", assignments));
+			output.add(new PointerParameter("centers", centers));
 		}
-
-		// write the final k-means centers and assignments
-		auto startKMeansWrite = std::chrono::system_clock::now();
-		El::Zero(*assignments);
-		assignments->Reserve(localData.rows());
-		for(El::Int rowIdx = 0; rowIdx < localData.rows(); ++rowIdx)
-			assignments->QueueUpdate(rowMap[rowIdx], 0, rowAssignments[rowIdx]);
-		assignments->ProcessQueues();
-
-		El::Zero(*centers);
-		centers->Reserve(centers->LocalHeight()*d);
-		for(uint32_t clusterIdx = 0; clusterIdx < num_centers; ++clusterIdx)
-			if (centers->IsLocalRow(clusterIdx)) {
-				for(El::Int colIdx = 0; colIdx < d; ++colIdx)
-					centers->QueueUpdate(clusterIdx, colIdx, clusterCenters(clusterIdx, colIdx));
-			}
-		centers->ProcessQueues();
-		std::chrono::duration<double, std::milli> kMeansWrite_duration(std::chrono::system_clock::now() - startKMeansWrite);
-		std::cerr << world.rank() << ": writing the k-means centers and assignments took " << kMeansWrite_duration.count() << "ms\n";
-
-		mpi::reduce(world, objVal, std::plus<double>(), 0);
-		world.barrier();
 	}
 
-	output.add(new StringParameter("result", "success"));
-	output.add(new FloatParameter("error", 5.555555f));
 
 	return 0;
 }

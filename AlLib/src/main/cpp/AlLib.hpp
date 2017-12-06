@@ -18,7 +18,6 @@
 #include <boost/serialization/export.hpp>
 #include <boost/format.hpp>
 #include <boost/random.hpp>
-#include "spdlog/spdlog.h"
 #include <cassert>
 #include <cstdlib>
 #include <cstdio>
@@ -27,24 +26,22 @@
 #include <arpa/inet.h>
 #include "include/Parameters.hpp"
 #include "include/Library.hpp"
+#include "utility/Logger.hpp"
 #include "nla/nla.hpp"						// Include all NLA routines
 #include "ml/ml.hpp"							// Include all ML/Data-mining routines
 
-using Eigen::MatrixXd;
-using Eigen::VectorXd;
-using Eigen::VectorXi;
-
 namespace allib {
 
-struct AlLib : alchemist::Library {
+typedef El::AbstractDistMatrix<double> DistMatrix;
+
+struct AlLib : alchemist::Library, allib::Logger {
 
 	boost::mpi::environment & env;
 	boost::mpi::communicator & world;
 	boost::mpi::communicator & peers;
+	El::grid & grid;
 
-	std::shared_ptr<spdlog::logger> & log;
-
-	int load(boost::mpi::environment &, boost::mpi::communicator &, boost::mpi::communicator &);
+	int load(boost::mpi::environment &, boost::mpi::communicator &, boost::mpi::communicator &, El::grid &);
 	int unload();
 	int run(std::string, Parameters &, Parameters &);
 };
@@ -58,7 +55,6 @@ extern "C" void destroy(Library* p) {
     delete p;
 }
 
-std::shared_ptr<spdlog::logger> start_log(std::string name);
 }
 
 #endif // ALLIB_HPP

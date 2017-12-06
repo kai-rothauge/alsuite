@@ -39,6 +39,8 @@ int Executor::load_library(std::string args) {
 
     	libraries.insert(std::make_pair(library_name, LibraryInfo(library_name, library_path, lib, library)));
 
+    	library->load(env, world, peers, grid);
+
     	log->info("Library {} loaded", library_name);
 
     	return 0;

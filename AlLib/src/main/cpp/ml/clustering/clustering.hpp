@@ -23,12 +23,34 @@
 #include <boost/serialization/export.hpp>
 #include <boost/format.hpp>
 #include <boost/random.hpp>
-#include "spdlog/spdlog.h"
+#include "../../utility/Logger.hpp"
+#include "../../include/Parameters.hpp"
 
 namespace allib {
 
-class Clustering {
+class Clustering : Logger {
 public:
+
+	boost::mpi::communicator & world;
+	boost::mpi::communicator & peers;
+	El::Grid & peers;
+
+	void set_log(std::shared_ptr<spdlog::logger> & _log) {
+		log = _log;
+	}
+
+	void set_world(boost::mpi::communicator & _world) {
+		world = _world;
+	}
+
+	void set_peers(boost::mpi::communicator & _peers) {
+		peers = _peers;
+	}
+
+	void set_grid(El::Grid & _grid) {
+		grid = _grid;
+	}
+
 	virtual int initialize() = 0;
 	virtual int train() = 0;
 };
@@ -56,6 +78,8 @@ public:
 	uint64_t get_seed();
 	void set_seed(uint64_t);
 
+	void set_data_matrix(DistMatrix * _data);
+
 	int initialize();
 	int train();
 	int run();
@@ -69,6 +93,8 @@ private:
 	uint32_t init_steps;						// Which initialization method to use to choose
 											//     initial cluster center guesses
 	uint64_t seed;							// Random seed used in driver and workers
+
+	DistMatrix * data_matrix;
 
 	int initialize_random();
 	int initialize_parallel(DistMatrix const *, MatrixXd const &, uint32_t, MatrixXd &);

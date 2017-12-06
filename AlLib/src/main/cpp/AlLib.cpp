@@ -3,17 +3,16 @@
 using namespace allib;
 using boost::mpi;
 
-int AlLib::load(boost::mpi::environment & _env, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) {
+int AlLib::load(boost::mpi::environment & _env, boost::mpi::communicator & _world,
+		boost::mpi::communicator & _peers, El::Grid & _grid) {
 
 	env = _env;
 	world = _world;
 	peers = _peers;
+	grid = _grid;
 
 	bool isDriver = world.rank() == 0;
-	if isDriver
-		std::shared_ptr<spdlog::logger> log = allib::start_log("AlLib driver");
-	else
-		std::shared_ptr<spdlog::logger> log = allib::start_log("AlLib worker");
+	log = (isDriver) ? start_log("AlLib driver") : start_log("AlLib worker");
 
 	return 0;
 }
@@ -36,29 +35,20 @@ int AlLib::run(std::string task, Parameters & input, Parameters & output) {
 																		//     initial cluster center guesses
 		uint64_t seed           = input.get_long("seed");					// Random seed used in driver and workers
 
-
 		KMeans kmeans = new KMeans(num_centers, max_iterations, epsilon, init_mode, init_steps, seed);
 		kmeans.set_log(log);
 		kmeans.set_world(world);
 		kmeans.set_peers(peers);
-
+		kmeans.set_grid(grid);
+		bool isDriver = world.rank() == 0;
+		if (!isDriver)
+			kmeans.set_data_matrix(std::dynamic_pointer_cast<DistMatrix>(input.get_ptr("data")));
+		kmeans.run(output);
 	}
 	else if (task.compare("svd") == 0) {
-		SVD svd = new SVD(input, output, log);
+		SVD svd = new SVD(input, output);
 	}
 
 	return 0;
 }
 
-std::shared_ptr<spdlog::logger> allib::start_log(std::string name) {
-	std::string logfile_name = name + ".log";
-
-	std::shared_ptr<spdlog::logger> log;
-	std::vector<spdlog::sink_ptr> sinks;
-	sinks.push_back(std::make_shared<spdlog::sinks::ansicolor_stderr_sink_st>());
-	sinks.push_back(std::make_shared<spdlog::sinks::simple_file_sink_st>(logfile_name));
-	log = std::make_shared<spdlog::logger>(name, std::begin(sinks), std::end(sinks));
-	log->flush_on(spdlog::level::info);
-	log->set_level(spdlog::level::info); // only log stuff at or above info level, for production
-	return log;
-}

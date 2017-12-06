@@ -347,6 +347,15 @@ int Worker::run_task() {
 
 	int status = Executor::run_task(args, output_parameters);
 
+	DistMatrix * assignments = std::dynamic_pointer_cast<DistMatrix>(output_parameters.get_ptr("assignments"));
+	DistMatrix * centers = std::dynamic_pointer_cast<DistMatrix>(output_parameters.get_ptr("centers"));
+
+	boost::mpi::broadcast(world, 2, 0);
+	boost::mpi::broadcast(world, assignments->Height(), 0);
+
+	auto n = origDataMat->Height();
+				auto d = origDataMat->Width();
+
 	world.barrier();
 
 	return (status == 0) ? 0 : 1;

@@ -20,12 +20,12 @@ struct LibraryInfo {
 	Library * lib;
 };
 
-struct Executor {
+struct Executor : Logger {
 	boost::mpi::environment & env;
 	boost::mpi::communicator & world;
 	boost::mpi::communicator & peers;
 
-	std::shared_ptr<spdlog::logger> log;
+	El::Grid grid;
 
 	std::map<std::string, LibraryInfo> libraries;
 
@@ -87,8 +87,7 @@ struct Worker : Executor {
 
 	WorkerId id;
 	int listenSock;
-	El::Grid grid;
-	std::map<MatrixHandle, std::unique_ptr<DistMatrix> > matrices;
+	std::map<MatrixHandle, std::shared_ptr<DistMatrix> > matrices;
 
 	Worker(boost::mpi::environment &, boost::mpi::communicator &, boost::mpi::communicator &);
 
