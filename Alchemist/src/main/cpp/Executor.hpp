@@ -4,6 +4,7 @@
 #include <dlfcn.h>
 #include "data_stream.hpp"
 #include "Library.hpp"
+#include "utility/Logger.hpp"
 
 namespace alchemist {
 
@@ -30,9 +31,12 @@ struct Executor : Logger {
 	std::map<std::string, LibraryInfo> libraries;
 
 	Executor(boost::mpi::environment & _env, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) :
-		env(_env), world(_world), peers(_peers) {}
+		Logger(), env(_env), world(_world), peers(_peers), grid(El::mpi::Comm(peers)) {}
 
 	virtual int run() = 0;
+
+	virtual int process_input_parameters(Parameters &) = 0;
+	virtual int process_output_parameters(Parameters &) = 0;
 
 	int load_library(std::string);
 	int run_task(std::string, Parameters &);
@@ -75,6 +79,9 @@ struct Driver : Executor {
 	int load_library();
 	int run_task();
 
+	int process_input_parameters(Parameters &);
+	int process_output_parameters(Parameters &);
+
 	int receive_new_matrix();
 	int get_matrix_dimensions();
 	int get_transpose();
@@ -95,6 +102,9 @@ struct Worker : Executor {
 
 	int load_library();
 	int run_task();
+
+	int process_input_parameters(Parameters &);
+	int process_output_parameters(Parameters &);
 
 	int receive_new_matrix();
 	int get_transpose();

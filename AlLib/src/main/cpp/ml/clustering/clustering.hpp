@@ -23,17 +23,29 @@
 #include <boost/serialization/export.hpp>
 #include <boost/format.hpp>
 #include <boost/random.hpp>
+#include <boost/mpi.hpp>
 #include "../../utility/Logger.hpp"
 #include "../../include/Parameters.hpp"
 
 namespace allib {
 
+typedef El::AbstractDistMatrix<double> DistMatrix;
+
+using Eigen::MatrixXd;
+using Eigen::VectorXd;
+
+using alchemist::Parameters;
+
 class Clustering : Logger {
 public:
+	Clustering(std::shared_ptr<spdlog::logger> & _log, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) :
+		Logger(_log), world(_world), peers(_peers), grid(El::mpi::Comm(peers)) {}
+
+	~Clustering() {}
 
 	boost::mpi::communicator & world;
 	boost::mpi::communicator & peers;
-	El::Grid & peers;
+	El::Grid grid;
 
 	void set_log(std::shared_ptr<spdlog::logger> & _log) {
 		log = _log;
@@ -47,18 +59,20 @@ public:
 		peers = _peers;
 	}
 
-	void set_grid(El::Grid & _grid) {
-		grid = _grid;
-	}
-
 	virtual int initialize() = 0;
-	virtual int train() = 0;
+	virtual int train(Parameters & output) = 0;
 };
 
 class KMeans : public Clustering {
 public:
-	KMeans();
-	KMeans(uint32_t, uint32_t, double, string, uint32_t, uint64_t);
+//	KMeans();
+	KMeans(std::shared_ptr<spdlog::logger> & _log, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) :
+		Clustering(_log, _world, _peers) {}
+
+//	KMeans(uint32_t, uint32_t, double, std::string, uint32_t, uint64_t);
+
+	void set_parameters(uint32_t _num_centers, uint32_t _max_iterations, double _epsilon, std::string _init_mode,
+			uint32_t _init_steps, uint64_t _seed);
 
 	uint32_t get_num_centers();
 	void set_num_centers(uint32_t);
@@ -81,8 +95,8 @@ public:
 	void set_data_matrix(DistMatrix * _data);
 
 	int initialize();
-	int train();
-	int run();
+	int train(Parameters & output);
+	int run(Parameters & output);
 
 private:
 	uint32_t num_centers;
@@ -108,117 +122,3 @@ private:
 }
 
 #endif // ALLIB__CLUSTERING_HPP
-
-
-
-
-
-
-
-
-//
-//
-//
-//
-///**
-// * K-means clustering with support for k-means|| initialization proposed by Bahmani et al.
-// *
-// * @see <a href="http://dx.doi.org/10.14778/2180912.2180915">Bahmani et al., Scalable k-means++.</a>
-// */
-//@Since("1.5.0")
-//class KMeans @Since("1.5.0") (
-//    @Since("1.5.0") override val uid: String)
-//  extends Estimator[KMeansModel] with KMeansParams with DefaultParamsWritable {
-//
-//  setDefault(
-//    k -> 2,
-//    maxIter -> 20,
-//    initMode -> MLlibKMeans.K_MEANS_PARALLEL,
-//    initSteps -> 2,
-//    tol -> 1e-4)
-//
-//  @Since("1.5.0")
-//  override def copy(extra: ParamMap): KMeans = defaultCopy(extra)
-//
-//  @Since("1.5.0")
-//  def this() = this(Identifiable.randomUID("kmeans"))
-//
-//  /** @group setParam */
-//  @Since("1.5.0")
-//  def setFeaturesCol(value: String): this.type = set(featuresCol, value)
-//
-//  /** @group setParam */
-//  @Since("1.5.0")
-//  def setPredictionCol(value: String): this.type = set(predictionCol, value)
-//
-//  /** @group setParam */
-//  @Since("1.5.0")
-//  def setK(value: Int): this.type = set(k, value)
-//
-//  /** @group expertSetParam */
-//  @Since("1.5.0")
-//  def setInitMode(value: String): this.type = set(initMode, value)
-//
-//  /** @group expertSetParam */
-//  @Since("1.5.0")
-//  def setInitSteps(value: Int): this.type = set(initSteps, value)
-//
-//  /** @group setParam */
-//  @Since("1.5.0")
-//  def setMaxIter(value: Int): this.type = set(maxIter, value)
-//
-//  /** @group setParam */
-//  @Since("1.5.0")
-//  def setTol(value: Double): this.type = set(tol, value)
-//
-//  /** @group setParam */
-//  @Since("1.5.0")
-//  def setSeed(value: Long): this.type = set(seed, value)
-//
-//  @Since("2.0.0")
-//  override def fit(dataset: Dataset[_]): KMeansModel = {
-//    transformSchema(dataset.schema, logging = true)
-//
-//    val handlePersistence = dataset.storageLevel == StorageLevel.NONE
-//    val instances: RDD[OldVector] = dataset.select(col($(featuresCol))).rdd.map {
-//      case Row(point: Vector) => OldVectors.fromML(point)
-//    }
-//
-//    if (handlePersistence) {
-//      instances.persist(StorageLevel.MEMORY_AND_DISK)
-//    }
-//
-//    val instr = Instrumentation.create(this, instances)
-//    instr.logParams(featuresCol, predictionCol, k, initMode, initSteps, maxIter, seed, tol)
-//    val algo = new MLlibKMeans()
-//      .setK($(k))
-//      .setInitializationMode($(initMode))
-//      .setInitializationSteps($(initSteps))
-//      .setMaxIterations($(maxIter))
-//      .setSeed($(seed))
-//      .setEpsilon($(tol))
-//    val parentModel = algo.run(instances, Option(instr))
-//    val model = copyValues(new KMeansModel(uid, parentModel).setParent(this))
-//    val summary = new KMeansSummary(
-//      model.transform(dataset), $(predictionCol), $(featuresCol), $(k))
-//
-//    model.setSummary(Some(summary))
-//    instr.logSuccess(model)
-//    if (handlePersistence) {
-//      instances.unpersist()
-//    }
-//    model
-//  }
-//
-//  @Since("1.5.0")
-//  override def transformSchema(schema: StructType): StructType = {
-//    validateAndTransformSchema(schema)
-//  }
-//}
-//
-//@Since("1.6.0")
-//object KMeans extends DefaultParamsReadable[KMeans] {
-//
-//  @Since("1.6.0")
-//  override def load(path: String): KMeans = super.load(path)
-//}

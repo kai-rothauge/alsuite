@@ -13,6 +13,7 @@ TARGET_PATH = target
 CXXFLAGS += $(EL_COMPILE_FLAGS) -fdiagnostics-color=always
 #CXXFLAGS += -Wall
 CXXFLAGS += -Wno-unused -Wno-reorder -std=c++14 -fext-numeric-literals -fopenmp
+CXXFLAGS += "-I$(SRC_PATH)/utility"
 CXXFLAGS += "-I$(ELEMENTAL_PATH)/include" "-I$(EIGEN3_PATH)/include" "-I$(SPDLOG_PATH)/include" "-I$(ARPACK_PATH)/include"
 
 LDFLAGS += "-L$(EL_LIB)" "-Wl,-rpath,$(EL_LIB)" $(EL_LIBS)

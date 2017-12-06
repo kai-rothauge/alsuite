@@ -13,6 +13,7 @@ TARGET_PATH = target
 CXXFLAGS += $(EL_COMPILE_FLAGS) -fdiagnostics-color=always
 #CXXFLAGS += -Wall
 CXXFLAGS += -Wno-unused -Wno-reorder -std=c++14 -fext-numeric-literals -fopenmp
+CXXFLAGS += "-I$(SRC_PATH)/include" "-I$(SRC_PATH)/ml" "-I$(SRC_PATH)/ml/clustering" "-I$(SRC_PATH)/nla" "-I$(SRC_PATH)/utility"
 CXXFLAGS += "-I$(ELEMENTAL_PATH)/include" "-I$(EIGEN3_PATH)/include" "-I$(SPDLOG_PATH)/include" "-I$(ARPACK_PATH)/include"
 
 LDFLAGS += "-L$(EL_LIB)" "-Wl,-rpath,$(EL_LIB)" $(EL_LIBS)
@@ -40,12 +41,18 @@ ifdef BOOST_DIR
 endif
 
 OBJ_FILES = \
-	$(TARGET_PATH)/AlLib.o \
-#	$(TARGET_PATH)/Driver.o \
-#	$(TARGET_PATH)/Worker.o \
+	$(TARGET_PATH)/KMeans.o \
+	$(TARGET_PATH)/SVD.o \
+	#$(TARGET_PATH)/AlLib.o
 	#
 
-$(TARGET_PATH)/%.o: $(SRC_PATH)/AlLib.cpp $(SRC_PATH)/AlLib.hpp
+#$(TARGET_PATH)/AlLib.o: $(SRC_PATH)/AlLib.cpp $(SRC_PATH)/AlLib.hpp
+#	$(CXX) -c $(CXXFLAGS) $< -o $@
+	
+$(TARGET_PATH)/KMeans.o: $(SRC_PATH)/ml/clustering/KMeans.cpp $(SRC_PATH)/ml/clustering/Clustering.hpp
+	$(CXX) -c $(CXXFLAGS) $< -o $@
+	
+$(TARGET_PATH)/SVD.o: $(SRC_PATH)/nla/SVD.cpp $(SRC_PATH)/nla/SVD.hpp
 	$(CXX) -c $(CXXFLAGS) $< -o $@
 
 .PHONY: default

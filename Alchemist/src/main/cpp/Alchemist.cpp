@@ -1,7 +1,6 @@
 #include "Alchemist.hpp"
 #include "Executor.hpp"
 
-
 int main(int argc, char *argv[]) {
 	using namespace alchemist;
 	boost::mpi::environment env;

@@ -1,19 +1,37 @@
 #include "clustering.hpp"
 
-using Eigen::MatrixXd;
-using Eigen::VectorXd;
-
-using boost::mpi;
-
 namespace allib {
 
-KMeans::KMeans() : num_centers(2), max_iterations(20), epsilon(1e-4), init_mode("kmeans||"), init_steps(2), seed(10), data_matrix(nullptr) { }
+//KMeans::KMeans() : num_centers(2), max_iterations(20), epsilon(1e-4), init_mode("kmeans||"), init_steps(2), seed(10), data_matrix(nullptr) { }
 
-KMeans::KMeans(uint32_t _num_centers, uint32_t _max_iterations, double _epsilon, std::string _init_mode,
-			uint32_t _init_steps, uint64_t _seed) :
-		num_centers(_num_centers), max_iterations(_max_iterations), epsilon(_epsilon), init_mode(_init_mode),
-		init_steps(_init_steps), seed(_seed), data_matrix(nullptr)
+//KMeans::KMeans(uint32_t _num_centers, uint32_t _max_iterations, double _epsilon, std::string _init_mode,
+//			uint32_t _init_steps, uint64_t _seed) :
+//		num_centers(_num_centers), max_iterations(_max_iterations), epsilon(_epsilon), init_mode(_init_mode),
+//		init_steps(_init_steps), seed(_seed), data_matrix(nullptr)
+//{
+//	if (epsilon < 0.0 || epsilon > 1.0) {
+//		log->error("Unreasonable change threshold in k-means: {}", epsilon);
+//		epsilon = 1e-4;
+//		log->error("Change threshold changed to default value {}", 1e-4);
+//	}
+//
+//	if strcmp(init_mode, "kmeans||") {
+//		init_mode = "kmeans||";
+//		log->warn("Sorry, only k-means|| initialization has been implemented, so ignoring your choice of method {}", init_mode);
+//	}
+//}
+
+void KMeans::set_parameters(uint32_t _num_centers, uint32_t _max_iterations, double _epsilon, std::string _init_mode,
+		uint32_t _init_steps, uint64_t _seed)
 {
+	num_centers = _num_centers;
+	max_iterations = _max_iterations;
+	epsilon = _epsilon;
+	init_mode = _init_mode;
+	init_steps = _init_steps;
+	seed = _seed;
+	data_matrix = nullptr;
+
 	if (epsilon < 0.0 || epsilon > 1.0) {
 		log->error("Unreasonable change threshold in k-means: {}", epsilon);
 		epsilon = 1e-4;
@@ -78,8 +96,8 @@ int KMeans::initialize() {
 	strcmp(init_mode, "random") ? initialize_random() : initialize_parallel();
 }
 
-int KMeans::run() {
-	train();
+int KMeans::run(Parameters & output) {
+	train(Parameters & output);
 }
 
 uint32_t KMeans::update_assignments_and_counts(MatrixXd const & dataMat, MatrixXd const & centers,
@@ -124,7 +142,7 @@ int KMeans::initialize_parallel(DistMatrix const * dataMat, MatrixXd const & loc
 
 	// if you have the initial cluster seed, send it to everyone
 	uint32_t rowIdx;
-	mpi::broadcast(world, rowIdx, 0);
+	boost::mpi::broadcast(world, rowIdx, 0);
 	MatrixXd initialCenter;
 
 	if (dataMat->IsLocalRow(rowIdx)) {
@@ -132,14 +150,14 @@ int KMeans::initialize_parallel(DistMatrix const * dataMat, MatrixXd const & loc
 		initialCenter = localData.row(localRowIdx);
 		int maybe_root = 1;
 		int rootProcess;
-		mpi::all_reduce(peers, peers.rank(), rootProcess, std::plus<int>());
-		mpi::broadcast(peers, initialCenter, peers.rank());
+		boost::mpi::all_reduce(peers, peers.rank(), rootProcess, std::plus<int>());
+		boost::mpi::broadcast(peers, initialCenter, peers.rank());
 	}
 	else {
 		int maybe_root = 0;
 		int rootProcess;
-		mpi::all_reduce(peers, 0, rootProcess, std::plus<int>());
-		mpi::broadcast(peers, initialCenter, rootProcess);
+		boost::mpi::all_reduce(peers, 0, rootProcess, std::plus<int>());
+		boost::mpi::broadcast(peers, initialCenter, rootProcess);
 	}
 
 	//in each step, sample 2*k points on average (totalled across the partitions)
@@ -164,7 +182,7 @@ int KMeans::initialize_parallel(DistMatrix const * dataMat, MatrixXd const & loc
 			distSqToCenters[pointIdx] = distSq.minCoeff();
 			Z += distSqToCenters[pointIdx];
 		}
-		mpi::all_reduce(peers, mpi::inplace_t<double>(Z), std::plus<double>());
+		boost::mpi::all_reduce(peers, boost::mpi::inplace_t<double>(Z), std::plus<double>());
 
 		// 2) sample your points accordingly
 		std::vector<MatrixXd> localNewCenters;
@@ -179,11 +197,11 @@ int KMeans::initialize_parallel(DistMatrix const * dataMat, MatrixXd const & loc
 		// to update each worker's set of centers
 		for(uint32_t root= 0; root < peers.size(); ++root) {
 			if (root == peers.rank()) {
-				mpi::broadcast(peers, localNewCenters, root);
+				boost::mpi::broadcast(peers, localNewCenters, root);
 				initCenters.insert(initCenters.end(), localNewCenters.begin(), localNewCenters.end());
 			} else {
 				std::vector<MatrixXd> remoteNewCenters;
-				mpi::broadcast(peers, remoteNewCenters, root);
+				boost::mpi::broadcast(peers, remoteNewCenters, root);
 				initCenters.insert(initCenters.end(), remoteNewCenters.begin(), remoteNewCenters.end());
 			}
 		}
@@ -201,7 +219,7 @@ int KMeans::initialize_parallel(DistMatrix const * dataMat, MatrixXd const & loc
 		localClusterSizes[clusterIdx] += 1;
 	}
 
-	mpi::all_reduce(peers, localClusterSizes.data(), localClusterSizes.size(),
+	boost::mpi::all_reduce(peers, localClusterSizes.data(), localClusterSizes.size(),
 	clusterSizes.data(), std::plus<uint32_t>());
 
 	// after centers have been sampled, sync back up with the driver,
@@ -214,7 +232,7 @@ int KMeans::initialize_parallel(DistMatrix const * dataMat, MatrixXd const & loc
 	world.barrier();
 
 	clusterCenters.setZero();
-	mpi::broadcast(world, clusterCenters.data(), clusterCenters.rows()*d, 0);
+	boost::mpi::broadcast(world, clusterCenters.data(), clusterCenters.rows()*d, 0);
 
 	return 0;
 }
@@ -339,7 +357,7 @@ int KMeans::train(Parameters & output) {
 //		MatrixHandle centersHandle = this->registerMatrix(num_centers, d);
 //		MatrixHandle assignmentsHandle = this->registerMatrix(n, 1);
 
-		mpi::broadcast(world, 0x1, 0);
+		boost::mpi::broadcast(world, 0x1, 0);
 
 		/******** START of kmeans|| initialization ********/
 		std::mt19937 gen(seed);
@@ -347,13 +365,13 @@ int KMeans::train(Parameters & output) {
 		uint32_t rowidx = dis(gen);
 		std::vector<double> initialCenter(d);
 
-		mpi::broadcast(world, rowidx, 0); // tell the workers which row to use as initialization in kmeans||
+		boost::mpi::broadcast(world, rowidx, 0); // tell the workers which row to use as initialization in kmeans||
 		world.barrier(); // wait for workers to return oversampled cluster centers and sizes
 
 		std::vector<uint32_t> clusterSizes;
 		std::vector<MatrixXd> initClusterCenters;
-		world.recv(1, mpi::any_tag, clusterSizes);
-		world.recv(1, mpi::any_tag, initClusterCenters);
+		world.recv(1, boost::mpi::any_tag, clusterSizes);
+		world.recv(1, boost::mpi::any_tag, initClusterCenters);
 		world.barrier();
 
 		log->info("Retrieved the k-means|| oversized set of potential cluster centers");
@@ -370,7 +388,7 @@ int KMeans::train(Parameters & output) {
 		log->info("Ran local k-means on the driver to determine starting cluster centers");
 		log->debug("{}", clusterCenters);
 
-		mpi::broadcast(world, clusterCenters.data(), num_centers*d, 0);
+		boost::mpi::broadcast(world, clusterCenters.data(), num_centers*d, 0);
 		/******** END of kMeans|| initialization ********/
 
 		/******** START of Lloyd's algorithm iterations ********/
@@ -392,10 +410,10 @@ int KMeans::train(Parameters & output) {
 			for(uint32_t clusterIdx = 0; clusterIdx < num_centers; clusterIdx++)
 				parClusterSizes[clusterIdx] = 0;
 			command = 1; // do a basic iteration
-			mpi::broadcast(world, command, 0);
-			mpi::reduce(world, (uint32_t) 0, numChanged, std::plus<int>(), 0);
-			mpi::reduce(world, zerosVector.data(), num_centers, parClusterSizes.data(), std::plus<uint32_t>(), 0);
-			world.recv(1, mpi::any_tag, centersMovedQ);
+			boost::mpi::broadcast(world, command, 0);
+			boost::mpi::reduce(world, (uint32_t) 0, numChanged, std::plus<int>(), 0);
+			boost::mpi::reduce(world, zerosVector.data(), num_centers, parClusterSizes.data(), std::plus<uint32_t>(), 0);
+			world.recv(1, boost::mpi::any_tag, centersMovedQ);
 			percentAssignmentsChanged = ((double) numChanged)/n;
 
 			for(uint32_t clusterIdx = 0; clusterIdx < num_centers; clusterIdx++) {
@@ -405,17 +423,17 @@ int KMeans::train(Parameters & output) {
 					centersMovedQ = true;
 					command = 2; // reinitialize this cluster center
 					uint32_t rowIdx = dis(gen);
-					mpi::broadcast(world, command, 0);
-					mpi::broadcast(world, clusterIdx, 0);
-					mpi::broadcast(world, rowIdx, 0);
+					boost::mpi::broadcast(world, command, 0);
+					boost::mpi::broadcast(world, clusterIdx, 0);
+					boost::mpi::broadcast(world, rowIdx, 0);
 					world.barrier();
 				}
 			}
 		}
 		command = 0xf; // terminate and finalize the k-means centers and assignments as distributed matrices
-		mpi::broadcast(world, command, 0);
+		boost::mpi::broadcast(world, command, 0);
 		double objVal = 0.0;
-		mpi::reduce(world, 0.0, objVal, std::plus<double>(), 0);
+		boost::mpi::reduce(world, 0.0, objVal, std::plus<double>(), 0);
 		world.barrier();
 
 		/******** END of Lloyd's iterations ********/
@@ -427,7 +445,7 @@ int KMeans::train(Parameters & output) {
 	else {
 
 		int command;
-		mpi::broadcast(world, command, 0);
+		boost::mpi::broadcast(world, command, 0);
 
 		if (command == 0x1) {
 			log->info("Started K-Means");
@@ -495,19 +513,19 @@ int KMeans::train(Parameters & output) {
 
 			while (true) {
 				uint32_t nextCommand;
-				mpi::broadcast(world, nextCommand, 0);
+				boost::mpi::broadcast(world, nextCommand, 0);
 
 				if (nextCommand == 0xf)  // finished iterating
 					break;
 				else if (nextCommand == 2) { // encountered an empty cluster, so randomly pick a point in the dataset as that cluster's centroid
 					uint32_t clusterIdx, rowIdx;
-					mpi::broadcast(world, clusterIdx, 0);
-					mpi::broadcast(world, rowIdx, 0);
+					boost::mpi::broadcast(world, clusterIdx, 0);
+					boost::mpi::broadcast(world, rowIdx, 0);
 					if (dataMat->IsLocalRow(rowIdx)) {
 						auto localRowIdx = dataMat->LocalRow(rowIdx);
 						clusterCenters.row(clusterIdx) = localData.row(localRowIdx);
 					}
-					mpi::broadcast(peers, clusterCenters, peers.rank());
+					boost::mpi::broadcast(peers, clusterCenters, peers.rank());
 					updateAssignmentsAndCounts(localData, clusterCenters, counts.get(), rowAssignments, objVal);
 					world.barrier();
 					continue;
@@ -522,9 +540,9 @@ int KMeans::train(Parameters & output) {
 				for(uint32_t rowIdx = 0; rowIdx < localData.rows(); ++rowIdx)
 					clusterCenters.row(rowAssignments[rowIdx]) += localData.row(rowIdx);
 
-				mpi::all_reduce(peers, clusterCenters.data(), num_centers*d, centersBuf.data(), std::plus<double>());
+				boost::mpi::all_reduce(peers, clusterCenters.data(), num_centers*d, centersBuf.data(), std::plus<double>());
 				std::memcpy(clusterCenters.data(), centersBuf.data(), num_centers*d*sizeof(double));
-				mpi::all_reduce(peers, counts.get(), num_centers, countsBuf.get(), std::plus<uint32_t>());
+				boost::mpi::all_reduce(peers, counts.get(), num_centers, countsBuf.get(), std::plus<uint32_t>());
 				std::memcpy(counts.get(), countsBuf.get(), num_centers*sizeof(uint32_t));
 
 				for(uint32_t rowIdx = 0; rowIdx < num_centers; ++rowIdx)
@@ -536,9 +554,9 @@ int KMeans::train(Parameters & output) {
 				log->info("Updated assignments");
 
 				// return the number of changed assignments
-				mpi::reduce(world, numChanged, std::plus<int>(), 0);
+				boost::mpi::reduce(world, numChanged, std::plus<int>(), 0);
 				// return the cluster counts
-				mpi::reduce(world, counts.get(), num_centers, std::plus<uint32_t>(), 0);
+				boost::mpi::reduce(world, counts.get(), num_centers, std::plus<uint32_t>(), 0);
 				log->info("Returned cluster counts");
 				if (world.rank() == 1) {
 					bool movedQ = (clusterCenters - oldClusterCenters).rowwise().norm().minCoeff() > changeThreshold;
@@ -565,7 +583,7 @@ int KMeans::train(Parameters & output) {
 			std::chrono::duration<double, std::milli> kMeansWrite_duration(std::chrono::system_clock::now() - startKMeansWrite);
 			log->info("Writing the k-means centers and assignments took {}", kMeansWrite_duration.count());
 
-			mpi::reduce(world, objVal, std::plus<double>(), 0);
+			boost::mpi::reduce(world, objVal, std::plus<double>(), 0);
 			world.barrier();
 
 			output.add(new PointerParameter("assignments", assignments));

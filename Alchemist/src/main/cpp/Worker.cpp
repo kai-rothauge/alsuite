@@ -53,8 +53,8 @@ struct WorkerClientSendHandler {
 				//std::cerr << format("%s: read: sock=%s, inbuf=%s, inpos=%s, count=%s\n")
 				//    % world.rank() % sock % inbuf.size() % inpos % count;
 				if (count == 0) break;		// Means the other side has closed the socket
-				else if( count == -1) {
-					if(errno == EAGAIN) break;					// No more input available until next POLLIN
+				else if ( count == -1) {
+					if (errno == EAGAIN) break;					// No more input available until next POLLIN
 					else if (errno == EINTR) continue;			// Interrupted (e.g. by signal), so try again
 					else if (errno == ECONNRESET) {
 						close();
@@ -80,7 +80,7 @@ struct WorkerClientSendHandler {
 							// treat the output as uint64_t[] instead of double[] to avoid type punning issues with be64toh
 							auto invals = reinterpret_cast<const uint64_t*>(&local_data[num_cols * local_row_offset]);
 							auto outvals = reinterpret_cast<uint64_t*>(&outbuf[8]);
-							for(uint64_t i = 0; i < num_cols; ++i) outvals[i] = be64toh(invals[i]);
+							for (uint64_t i = 0; i < num_cols; ++i) outvals[i] = be64toh(invals[i]);
 							inpos = 0;
 							poll_events = POLLOUT; // after parsing the request, send the data
 							break;
@@ -147,7 +147,7 @@ struct WorkerClientReceiveHandler {
 	}
 
 	void close() {
-		if(sock != -1) ::close(sock);
+		if (sock != -1) ::close(sock);
 		//log->warn("Closed socket");
 		sock = -1;
 		poll_events = 0;
@@ -156,16 +156,16 @@ struct WorkerClientReceiveHandler {
 	int handle_event(short revents) {
 		mpi::communicator world;
 		int rows_completed = 0;
-		if(revents & POLLIN && poll_events & POLLIN) {
+		if (revents & POLLIN && poll_events & POLLIN) {
 			while (!is_closed()) {
 				//log->info("waiting on socket");
 				int count = recv(sock, &inbuf[pos], inbuf.size() - pos, 0);
 				//log->info("count of received bytes {}", count);
-				if(count == 0) break;
-				else if(count == -1) {
-					if(errno == EAGAIN) break; 				// No more input available until next POLLIN
-					else if(errno == EINTR) continue;
-					else if(errno == ECONNRESET) {
+				if (count == 0) break;
+				else if (count == -1) {
+					if (errno == EAGAIN) break; 				// No more input available until next POLLIN
+					else if (errno == EINTR) continue;
+					else if (errno == ECONNRESET) {
 						close();
 						break;
 					} else {
@@ -223,7 +223,7 @@ struct WorkerClientReceiveHandler {
 };
 
 Worker::Worker(boost::mpi::environment & _env, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) :
-    Executor(_env, _world, _peers), id(_world.rank() - 1), grid(El::mpi::Comm(peers)), listenSock(-1) {
+    Executor(_env, _world, _peers), id(_world.rank() - 1), listenSock(-1) {
 
     ENSURE(peers.rank() == world.rank() - 1);
     log = start_log(str(format("worker-%d") % world.rank()));
@@ -251,7 +251,6 @@ int Worker::run() {
 	WorkerInfo info{hostname, port};
 	world.send(0, 0, info);
 	log->info("Listening for a connection at {}:{}", hostname, port);
-
 
 	bool shouldExit = false;
 	while(!shouldExit) {						// Handle commands until done
@@ -326,6 +325,35 @@ int Worker::run() {
 	return EXIT_SUCCESS;
 }
 
+int Worker::process_input_parameters(Parameters & input_parameters) {
+
+	auto matrixhandles = input_parameters.get_matrixhandles();
+
+	for (auto it = matrixhandles.begin(); it != matrixhandles.end(); it++ ) {
+		MatrixHandle handle{it->second->get_value()};
+		input_parameters.add_distmatrix(it->first, matrices[handle].get());
+	}
+
+	return 0;
+}
+
+int Worker::process_output_parameters(Parameters & output_parameters) {
+
+	auto distmatrices = output_parameters.get_distmatrices();
+
+	if (world.rank() == 1) {
+		world.send(0, boost::mpi::any_tag, distmatrices.size());
+
+		for (auto it = distmatrices.begin(); it != distmatrices.end(); it++) {
+			world.send(0, boost::mpi::any_tag, it->first);
+			world.send(0, boost::mpi::any_tag, it->second->get_value()->Height());
+			world.send(0, boost::mpi::any_tag, it->second->get_value()->Width());
+		}
+	}
+
+	return 0;
+}
+
 int Worker::load_library() {
 
 	std::string args;
@@ -346,17 +374,6 @@ int Worker::run_task() {
 	Parameters output_parameters = Parameters();
 
 	int status = Executor::run_task(args, output_parameters);
-
-	DistMatrix * assignments = std::dynamic_pointer_cast<DistMatrix>(output_parameters.get_ptr("assignments"));
-	DistMatrix * centers = std::dynamic_pointer_cast<DistMatrix>(output_parameters.get_ptr("centers"));
-
-	boost::mpi::broadcast(world, 2, 0);
-	boost::mpi::broadcast(world, assignments->Height(), 0);
-
-	auto n = origDataMat->Height();
-				auto d = origDataMat->Width();
-
-	world.barrier();
 
 	return (status == 0) ? 0 : 1;
 }

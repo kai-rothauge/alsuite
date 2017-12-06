@@ -1,6 +1,6 @@
-#ifndef ALLIB_ML_HPP
-#define ALLIB_ML_HPP
+#ifndef ALLIB__ML_HPP
+#define ALLIB__ML_HPP
 
 #include "clustering/Clustering.hpp"
 
-#endif // ALLIB_ML_HPP
+#endif // ALLIB__ML_HPP

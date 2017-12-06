@@ -173,6 +173,31 @@ int Driver::send_worker_info() {
 	return 0;
 }
 
+int Driver::process_input_parameters(Parameters & input_parameters) {
+
+	// Nothing to do (at this point)
+
+	return 0;
+}
+
+int Driver::process_output_parameters(Parameters & output_parameters) {
+
+	int distmatrices_count;
+	world.recv(1, boost::mpi::any_tag, distmatrices_count);
+
+	for (int i = 0; i < distmatrices_count; i++) {
+		std::string name;
+		size_t num_rows, num_cols;
+		world.recv(1, boost::mpi::any_tag, name);
+		world.recv(1, boost::mpi::any_tag, num_rows);
+		world.recv(1, boost::mpi::any_tag, num_cols);
+
+		output_parameters.add_matrixhandle(name, register_matrix(num_rows, num_cols).ID);
+	}
+
+	return 0;
+}
+
 int Driver::load_library() {
 
 	std::string args = input.read_string();
@@ -202,8 +227,6 @@ int Driver::run_task() {
 	int status = Executor::run_task(args, output_parameters);
 
 	log->info("Output: {}", output_parameters.to_string());
-
-	world.barrier();
 
 	if (status != 0) {
 		output.write_int(0x0);

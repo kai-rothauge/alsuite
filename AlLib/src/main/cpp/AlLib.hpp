@@ -2,7 +2,6 @@
 #define ALLIB_HPP
 
 #include <omp.h>
-#include <El.hpp>
 #include <stdio.h>
 #include <string>
 #include <iostream>
@@ -34,24 +33,25 @@ namespace allib {
 
 typedef El::AbstractDistMatrix<double> DistMatrix;
 
-struct AlLib : alchemist::Library, allib::Logger {
+using alchemist::Library;
 
-	boost::mpi::environment & env;
-	boost::mpi::communicator & world;
-	boost::mpi::communicator & peers;
-	El::grid & grid;
+struct AlLib : Library, Logger {
 
-	int load(boost::mpi::environment &, boost::mpi::communicator &, boost::mpi::communicator &, El::grid &);
+	AlLib(boost::mpi::communicator & _world, boost::mpi::communicator & _peers) : Library(_world, _peers), Logger() {}
+
+	~AlLib() {}
+
+	int load(boost::mpi::communicator &, boost::mpi::communicator &);
 	int unload();
-	int run(std::string, Parameters &, Parameters &);
+	int run(std::string, alchemist::Parameters &, alchemist::Parameters &);
 };
 
 // Class factories
-extern "C" Library* create() {
-    return new AlLib;
+extern "C" Library * create(boost::mpi::communicator & _world, boost::mpi::communicator & _peers) {
+    return new AlLib(_world, _peers);
 }
 
-extern "C" void destroy(Library* p) {
+extern "C" void destroy(Library * p) {
     delete p;
 }
 

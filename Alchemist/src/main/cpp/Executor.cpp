@@ -28,18 +28,18 @@ int Executor::load_library(std::string args) {
 
 	dlerror();			// Reset errors
 
-    open_t* open_library = (open_t*) dlsym(lib, "open");
+    create_t* create_library = (create_t*) dlsym(lib, "create");
     const char* dlsym_error = dlerror();
     	if (dlsym_error) {
     		log->info("dlsym with command \"load\" failed: {}", dlerror());
     		return -1;
     	}
 
-    	Library * library = open_library();
+    	Library * library = create_library(world, peers);
 
     	libraries.insert(std::make_pair(library_name, LibraryInfo(library_name, library_path, lib, library)));
 
-    	library->load(env, world, peers, grid);
+    	library->load(world, peers);
 
     	log->info("Library {} loaded", library_name);
 
@@ -67,11 +67,17 @@ int Executor::run_task(std::string args, Parameters & output_parameters) {
 		deserialize_parameters(input_parameter, input_parameters);
 	}
 
+	process_input_parameters(input_parameters);
+
 	log->info("Calling {}::run with '{}'", library_name, task_name);
 
 	libraries.find(library_name)->second.lib->run(task_name, input_parameters, output_parameters);
 
 	log->info("Finished call to {}::run with '{}'", library_name, task_name);
+
+	world.barrier();
+
+	process_output_parameters(output_parameters);
 
 	return 0;
 }
@@ -82,14 +88,14 @@ int Executor::unload_libraries() {
 
 		log->info("Closing library {}", library.second.name);
 
-	    close_t* close_library = (close_t*) dlsym(library.second.lib_ptr, "close");
+		destroy_t* destroy_library = (destroy_t*) dlsym(library.second.lib_ptr, "destroy");
 	    const char* dlsym_error = dlerror();
 	    	if (dlsym_error) {
 	    		log->info("dlsym with command \"close\" failed: {}", dlerror());
 	    		return -1;
 	    	}
 
-	    	close_library(library.second.lib);
+	    	destroy_library(library.second.lib);
 	    	dlclose(library.second.lib_ptr);
 	}
 
