@@ -83,8 +83,8 @@ class Parameters() {
     p.find(_.getName == name).map(_.getValue).getOrElse("")
   }
   
-  def getMatrixHandle(name: String): Int = {
-    p.find(_.getName == name).map(_.getValue).map(_.toInt).getOrElse(0)
+  def getMatrixHandle(name: String): MatrixHandle = {
+    new MatrixHandle(p.find(_.getName == name).map(_.getValue).map(_.toInt).getOrElse(0))
   }
 }
 

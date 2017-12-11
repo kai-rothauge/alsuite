@@ -24,10 +24,12 @@
 #include <boost/format.hpp>
 #include <boost/random.hpp>
 #include <boost/mpi.hpp>
+#include "spdlog/fmt/fmt.h"
+//#include "spdlog/fmt/ostr.h"
 #include "../../utility/Logger.hpp"
+#include "../../utility/eigen_tools.hpp"
 #include "../../include/Parameters.hpp"
 
-namespace allib {
 
 typedef El::AbstractDistMatrix<double> DistMatrix;
 
@@ -36,9 +38,11 @@ using Eigen::VectorXd;
 
 using alchemist::Parameters;
 
-class Clustering : Logger {
+namespace allib {
+
+class Clustering : public Logger {
 public:
-	Clustering(std::shared_ptr<spdlog::logger> & _log, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) :
+	Clustering(std::shared_ptr<spdlog::logger> _log, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) :
 		Logger(_log), world(_world), peers(_peers), grid(El::mpi::Comm(peers)) {}
 
 	~Clustering() {}
@@ -58,15 +62,12 @@ public:
 	void set_peers(boost::mpi::communicator & _peers) {
 		peers = _peers;
 	}
-
-	virtual int initialize() = 0;
-	virtual int train(Parameters & output) = 0;
 };
 
 class KMeans : public Clustering {
 public:
 //	KMeans();
-	KMeans(std::shared_ptr<spdlog::logger> & _log, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) :
+	KMeans(std::shared_ptr<spdlog::logger> _log, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) :
 		Clustering(_log, _world, _peers) {}
 
 //	KMeans(uint32_t, uint32_t, double, std::string, uint32_t, uint64_t);
@@ -94,11 +95,12 @@ public:
 
 	void set_data_matrix(DistMatrix * _data);
 
-	int initialize();
+	int initialize(DistMatrix const *, MatrixXd const &, uint32_t, MatrixXd &);
 	int train(Parameters & output);
 	int run(Parameters & output);
 
 private:
+	uint32_t data_handle;
 	uint32_t num_centers;
 	uint32_t max_iterations;					// How many iteration of Lloyd's algorithm to use at most
 	double epsilon;							// If all the centers change by Euclidean distance less
@@ -108,10 +110,10 @@ private:
 											//     initial cluster center guesses
 	uint64_t seed;							// Random seed used in driver and workers
 
-	DistMatrix * data_matrix;
+	DistMatrix * data;
 
 	int initialize_random();
-	int initialize_parallel(DistMatrix const *, MatrixXd const &, uint32_t, MatrixXd &);
+	int initialize_parallel(MatrixXd const &, uint32_t, MatrixXd &);
 
 	uint32_t update_assignments_and_counts(MatrixXd const &, MatrixXd const &,
 	    uint32_t *, std::vector<uint32_t> &, double &);

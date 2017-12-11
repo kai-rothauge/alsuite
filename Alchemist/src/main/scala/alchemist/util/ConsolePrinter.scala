@@ -2,7 +2,10 @@ package alchemist.util
 
 import java.io.PrintWriter
 
-class ConsolePrinter(consoleColorChoice: String, val logWriter: PrintWriter, val errWriter: PrintWriter) {
+class ConsolePrinter(consoleColorChoice: String) {
+  
+  var logWriter: PrintWriter = _
+  var errWriter: PrintWriter = _
   
   private[this] var tabs: Int = 0
   
@@ -27,6 +30,14 @@ class ConsolePrinter(consoleColorChoice: String, val logWriter: PrintWriter, val
       case _                => Console.BOLD + Console.WHITE
     } 
   }
+
+  def setLogWriter(_logWriter: PrintWriter) {
+    logWriter = _logWriter
+  }
+
+  def setErrWriter(_errWriter: PrintWriter) {
+    errWriter = _errWriter
+  }
   
   def tab: Unit = { tabs = 10.min(tabs+1) }
   
@@ -50,7 +61,7 @@ class ConsolePrinter(consoleColorChoice: String, val logWriter: PrintWriter, val
 }
 
 object ConsolePrinter {
-  def apply(consoleColorChoice: String, logWriter: PrintWriter, errWriter: PrintWriter) = {
-    new ConsolePrinter(consoleColorChoice, logWriter, errWriter) 
+  def apply(consoleColorChoice: String) = {
+    new ConsolePrinter(consoleColorChoice) 
   }
 }

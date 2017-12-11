@@ -1,4 +1,4 @@
-ALML_PATH ?= $(HOME)/Projects/AlSuite/AlLib
+ALLIB_PATH ?= $(HOME)/Projects/AlSuite/AlLib
 ELEMENTAL_PATH ?= $(HOME)/Software/Elemental
 EIGEN3_PATH ?= $(HOME)/Software/Eigen3
 SPDLOG_PATH ?= $(HOME)/Software/SPDLog
@@ -6,8 +6,8 @@ ARPACK_PATH ?= $(HOME)/Software/ARPACK
 
 include $(ELEMENTAL_PATH)/conf/ElVars
 
-SRC_PATH = src/main/cpp
-TARGET_PATH = target
+SRC_PATH = $(ALLIB_PATH)/src/main/cpp
+TARGET_PATH = $(ALLIB_PATH)/target
 
 # put libEl's CXXFLAGS in front so ours can override it
 CXXFLAGS += $(EL_COMPILE_FLAGS) -fdiagnostics-color=always
@@ -40,30 +40,62 @@ ifdef BOOST_DIR
   LDFLAGS += "-L$(BOOST_DIR)/lib" "-Wl,-rpath,$(BOOST_DIR)/lib"
 endif
 
-OBJ_FILES = \
-	$(TARGET_PATH)/KMeans.o \
-	$(TARGET_PATH)/SVD.o \
-	#$(TARGET_PATH)/AlLib.o
-	#
-
-#$(TARGET_PATH)/AlLib.o: $(SRC_PATH)/AlLib.cpp $(SRC_PATH)/AlLib.hpp
+#OBJ_FILES = \
+#	$(TARGET_PATH)/AlLib.o \
+#	$(TARGET_PATH)/KMeans.o \
+#	#$(TARGET_PATH)/SVD.o \
+#	#
+#
+#$(TARGET_PATH)/AlLib.o: %.o: $(SRC_PATH)/AlLib.cpp
 #	$(CXX) -c $(CXXFLAGS) $< -o $@
+#	
+#$(TARGET_PATH)/KMeans.o: %.o: $(SRC_PATH)/ml/clustering/KMeans.cpp
+#	$(CXX) -c $(CXXFLAGS) $< -o $@
+#	
+##$(TARGET_PATH)/SVD.o: $(SRC_PATH)/nla/SVD.cpp $(SRC_PATH)/nla/SVD.hpp
+##	$(CXX) -c $(CXXFLAGS) $< -o $@
+#
+#.PHONY: default
+#default: $(TARGET_PATH)/allib.dylib
+#
+#$(TARGET_PATH)/allib.dylib: $(TARGET_PATH) $(OBJ_FILES)
+#	$(CXX) -shared $(CXXFLAGS) -o $@ $(OBJ_FILES) $(LDFLAGS)
+#
+#$(TARGET_PATH):
+#	mkdir -p $@
+#
+#.PHONY: clean
+#clean:
+#	rm -rf $(TARGET_PATH)
 	
-$(TARGET_PATH)/KMeans.o: $(SRC_PATH)/ml/clustering/KMeans.cpp $(SRC_PATH)/ml/clustering/Clustering.hpp
-	$(CXX) -c $(CXXFLAGS) $< -o $@
 	
-$(TARGET_PATH)/SVD.o: $(SRC_PATH)/nla/SVD.cpp $(SRC_PATH)/nla/SVD.hpp
-	$(CXX) -c $(CXXFLAGS) $< -o $@
+MODULES   := main/cpp main/cpp/ml/clustering
+SRC_DIR   := $(addprefix src/,$(MODULES))
+BUILD_DIR := $(addprefix target/,$(MODULES))
 
-.PHONY: default
-default: $(TARGET_PATH)/allib.dylib
+SRC       := $(foreach sdir,$(SRC_DIR),$(wildcard $(sdir)/*.cpp))
+OBJ       := $(patsubst src/%.cpp,target/%.o,$(SRC))
 
-$(TARGET_PATH)/allib.dylib: $(TARGET_PATH) $(OBJ_FILES)
-	$(CXX) -shared $(CXXFLAGS) -o $@ $(OBJ_FILES) $(LDFLAGS)
+vpath %.cpp $(SRC_DIR)
 
-$(TARGET_PATH):
-	mkdir -p $(TARGET_PATH)
+define make-goal
+$1/%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $$< -o $$@
+endef
 
-.PHONY: clean
+.PHONY: all
+
+all: checkdirs target/allib.dylib
+
+target/allib.dylib: $(OBJ)
+	$(CXX) -shared $(CXXFLAGS) $^ -o $@ $(LDFLAGS)
+
+checkdirs: $(BUILD_DIR)
+
+$(BUILD_DIR):
+	mkdir -p $@
+
 clean:
-	rm -rf $(TARGET_PATH)
+	rm -rf $(BUILD_DIR)
+
+$(foreach bdir,$(BUILD_DIR),$(eval $(call make-goal,$(bdir))))

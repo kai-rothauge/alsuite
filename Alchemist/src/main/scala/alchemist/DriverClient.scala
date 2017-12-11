@@ -147,7 +147,7 @@ class DriverClient(val istream: InputStream, val ostream: OutputStream) {
     }
     val transposeHandle = new MatrixHandle(input.readInt())
     System.err.println(s"Got handle: ${transposeHandle.id}")
-    transposeHandle
+    return transposeHandle
   }
 
   def matrixMultiply(handleA: MatrixHandle, handleB: MatrixHandle): MatrixHandle = {

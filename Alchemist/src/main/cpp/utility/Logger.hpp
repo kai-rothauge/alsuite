@@ -3,13 +3,14 @@
 
 #include "spdlog/spdlog.h"
 
-namespace alchemist{
+namespace alchemist {
 
 struct Logger {
-	Logger() {};
-	Logger(std::shared_ptr<spdlog::logger> & _log): log(_log) {};
+	Logger(): log(start_log("default")) {}
 
-	~Logger() {};
+	Logger(std::shared_ptr<spdlog::logger> _log): log(_log) {}
+
+	~Logger() {}
 
 	std::shared_ptr<spdlog::logger> log;
 

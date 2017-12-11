@@ -17,13 +17,19 @@ import org.apache.spark.SparkConf
 // spark-sql
 import org.apache.spark.sql.SparkSession
 
-import altest.util.{ArgParser, ConsolePrinter}
 import alchemist.Alchemist
+import alchemist.util.ConsolePrinter
 import allib.AlLib
-import allib.ml.clustering.{KMeans => alKMeans}
-//import allib.ml.regression._
+import altest.util.ArgParser
+import altest.ml.clustering._
+import altest.nla._
 
 object AlTest {
+  
+  var logWriter: PrintWriter = _
+  var errWriter: PrintWriter = _
+  var sparkResultsWriter: PrintWriter = _
+  var alchemistResultsWriter: PrintWriter = _
   
   def main(args: Array[String]) {
 
@@ -54,14 +60,39 @@ object AlTest {
       val temp = parser.getOptionValue[String](LONG_NAME).replace("0x20", " ")
       if (temp.isEmpty()) shortName else temp
     }
-    val outDir       = parser.getOptionValue[String](OUT_DIR).replace("0x20", " ")
-
-    val logWriter              = createOutputWriter(outputFilePrefix + ".log")
-    val errWriter              = createOutputWriter(outputFilePrefix + ".err")
-    val sparkResultsWriter     = createOutputWriter(outputFilePrefix + "_results_spark.out")
-    val alchemistResultsWriter = createOutputWriter(outputFilePrefix + "_results_alchemist.out")
+    var outDir       = parser.getOptionValue[String](OUT_DIR).replace("0x20", " ")
+  
+    val cp = ConsolePrinter(consoleColor)
     
-    val cp = ConsolePrinter(consoleColor, logWriter, errWriter)
+    val outputFilePrefix: String = {
+      val dNow: Date = new Date( );
+      val ft: SimpleDateFormat = new SimpleDateFormat("yyyy.MM.dd_HH:mm:ss");
+      
+      val dir: File = new File(outDir + shortName + "_latest/")
+      
+      if (dir.exists()) delete(dir)
+  
+      if (dir.mkdir()) {
+        cp.println("Output directory '%s' was created successfully".format(dir))
+        outDir = dir.toString + "/"
+      }
+      else {
+        cp.println("Failed trying to create the directory '%s'".format(dir))
+        cp.printError("Failed trying to create the directory '%s'".format(dir))
+      }
+      cp.println("Output directory set to '%s'".format(outDir))
+      cp.println(" ")
+      
+      outDir + shortName + "_" + ft.format(dNow)
+    }
+
+    logWriter              = createOutputWriter(outputFilePrefix + ".log")
+    errWriter              = createOutputWriter(outputFilePrefix + ".err")
+    sparkResultsWriter     = createOutputWriter(outputFilePrefix + "_results_spark.out")
+    alchemistResultsWriter = createOutputWriter(outputFilePrefix + "_results_alchemist.out")
+    
+    cp.setLogWriter(logWriter)
+    cp.setErrWriter(errWriter)
     
 //    cp.println("============= BEGIN TEST RUNNER ==============\n")
     
@@ -88,7 +119,7 @@ object AlTest {
     cp.println("--------------------------------------------------------\n")
     cp.tab
     t1 = System.nanoTime()
-    val al = Alchemist.create(spark.sparkContext)
+    Alchemist.create(spark.sparkContext)
     cp.println("Time cost of starting Alchemist session: %6.4fs".format((System.nanoTime() - t1)*1.0E-9))
     cp.untab
     cp.println("\n========================================================\n")
@@ -102,12 +133,12 @@ object AlTest {
 //      cp.println("Building new %s test object",shortName)
     val test: PerfTest = shortName match {
       // clustering
-      case "kmeans" => new KMeansTest(spark,al)
+      case "kmeans" => new KMeansTest(spark,cp)
       // regression
 //      case "regression" => new LinearRegressionTest(spark,al)
       // linalg
-      case "svd" => new SVDTest(spark,al)
-      case "matmult" => new MatrixMultiplyTest(spark,al)
+      case "svd" => new SVDTest(spark,cp)
+      case "matmult" => new MatrixMultiplyTest(spark,cp)
     }
 //      cp.println("Done building")
 //      cp.println("Initializing %s test object",shortName)
@@ -164,7 +195,7 @@ object AlTest {
 //      cp.println("results: " + compact(render(json)))
 
   
-    al.stop()
+    Alchemist.stop()
     spark.stop()
     
 //    cp.println("============== END TEST RUNNER ===============\n")
@@ -176,28 +207,6 @@ object AlTest {
     if (file.isDirectory) 
       Option(file.listFiles).map(_.toList).getOrElse(Nil).foreach(delete(_))
     file.delete
-  }
-  
-  val outputFilePrefix: String = {
-    val dNow: Date = new Date( );
-    val ft: SimpleDateFormat = new SimpleDateFormat("yyyy.MM.dd_HH:mm:ss");
-    
-    val dir: File = new File(outDir + shortName + "_latest/")
-    
-    if (dir.exists()) delete(dir)
-
-    if (dir.mkdir()) {
-      cp.println("Output directory '%s' was created successfully".format(dir))
-      outDir = dir.toString + "/"
-    }
-    else {
-      cp.println("Failed trying to create the directory '%s'".format(dir))
-      cp.printError("Failed trying to create the directory '%s'".format(dir))
-    }
-    cp.println("Output directory set to '%s'".format(outDir))
-    cp.println(" ")
-    
-    outDir + shortName + "_" + ft.format(dNow)
   }
   
   def createOutputWriter(fileName: String): PrintWriter = new PrintWriter(new File(fileName))

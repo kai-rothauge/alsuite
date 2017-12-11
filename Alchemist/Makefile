@@ -1,4 +1,4 @@
-ALML_PATH ?= $(HOME)/Projects/AlSuite/Alchemist
+ALCHEMIST_PATH ?= $(HOME)/Projects/AlSuite/Alchemist
 ELEMENTAL_PATH ?= $(HOME)/Software/Elemental
 EIGEN3_PATH ?= $(HOME)/Software/Eigen3
 SPDLOG_PATH ?= $(HOME)/Software/SPDLog

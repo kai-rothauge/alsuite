@@ -16,10 +16,8 @@ struct Library {
 	boost::mpi::communicator & peers;
 	El::Grid grid;
 
-	virtual int load(boost::mpi::communicator &, boost::mpi::communicator &) = 0;
-
+	virtual int load() = 0;
 	virtual int unload() = 0;
-
 	virtual int run(std::string, Parameters &, Parameters &) = 0;
 };
 

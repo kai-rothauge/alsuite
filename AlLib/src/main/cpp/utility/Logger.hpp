@@ -6,13 +6,13 @@
 namespace allib {
 
 struct Logger {
-	Logger() {}
+	Logger(): log(start_log("default")) {}
 
 	Logger(std::shared_ptr<spdlog::logger> _log): log(_log) {}
 
 	~Logger() {}
 
-	std::shared_ptr<spdlog::logger> & log;
+	std::shared_ptr<spdlog::logger> log;
 
 	std::shared_ptr<spdlog::logger> start_log(std::string name) {
 		std::string logfile_name = name + ".log";

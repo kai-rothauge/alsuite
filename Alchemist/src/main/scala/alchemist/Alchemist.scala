@@ -30,18 +30,12 @@ object Alchemist {
   val client = driver.client
   
   var sc: SparkContext = _
-
+  
   // Instances of `Alchemist` are not serializable, but `.context`
   // has everything needed for RDD operations and is serializable.
   val context = new AlchemistContext(client)
   
   val libraries = collection.mutable.Map[String, String]()
-
-//  def stop(): Unit = driver.stop
-  
-  def create(_sc: SparkContext): Unit = {
-    sc = _sc
-  }
 
   def registerLibrary(libraryInfo: (String, String)) {
     libraries.update(libraryInfo._1, libraryInfo._2)
@@ -49,6 +43,10 @@ object Alchemist {
   }
   
   def listLibraries(): Unit = libraries foreach (x => println (x._1 + "-->" + x._2))
+  
+  def create(_sc: SparkContext) {
+    sc = _sc
+  }
   
   def run(libraryName: String, funName: String, inputParams: Parameters): Parameters = {
     client.runCommand(libraryName, funName, inputParams)
@@ -88,8 +86,7 @@ object Alchemist {
   }
   
   // Caches result by default, because may not want to recreate (e.g. if delete referenced matrix on Alchemist side to save memory)
-  def getIndexedRowMatrix(handle_ID: Int): IndexedRowMatrix = {
-    val handle = new MatrixHandle(handle_ID)
+  def getIndexedRowMatrix(handle: MatrixHandle): IndexedRowMatrix = {
     val (numRows, numCols) = getDimensions(handle)
     // TODO:
     // should map the rows back to the executors using locality information if possible
@@ -120,19 +117,13 @@ object Alchemist {
   
   def getDimensions(handle: MatrixHandle): Tuple2[Long, Int] = client.getMatrixDimensions(handle)
 
-  def transpose(handle: MatrixHandle): MatrixHandle = client.getTranspose(handle)
+  def transpose(mat: IndexedRowMatrix): IndexedRowMatrix = {
+    getIndexedRowMatrix(client.getTranspose(getMatrixHandle(mat)))
+  }
   
-  def matrixMultiply(handleA: MatrixHandle, handleB: MatrixHandle): MatrixHandle = client.matrixMultiply(handleA, handleB)
+  def matrixMultiply(matA: IndexedRowMatrix, matB: IndexedRowMatrix): IndexedRowMatrix = {
+    getIndexedRowMatrix(client.matrixMultiply(getMatrixHandle(matA), getMatrixHandle(matB)))
+  }
     
   def stop() = driver.stop()
 }
-      
-      
-      
-
-//object Alchemist {
-//  def apply() {
-//    new Alchemist()
-//  }
-//  
-//}

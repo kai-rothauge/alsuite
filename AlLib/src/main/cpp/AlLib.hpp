@@ -26,7 +26,7 @@
 #include "include/Parameters.hpp"
 #include "include/Library.hpp"
 #include "utility/Logger.hpp"
-#include "nla/nla.hpp"						// Include all NLA routines
+//#include "nla/nla.hpp"						// Include all NLA routines
 #include "ml/ml.hpp"							// Include all ML/Data-mining routines
 
 namespace allib {
@@ -37,18 +37,18 @@ using alchemist::Library;
 
 struct AlLib : Library, Logger {
 
-	AlLib(boost::mpi::communicator & _world, boost::mpi::communicator & _peers) : Library(_world, _peers), Logger() {}
+	AlLib(boost::mpi::communicator & world, boost::mpi::communicator & peers) : Library(world, peers), Logger() {}
 
 	~AlLib() {}
 
-	int load(boost::mpi::communicator &, boost::mpi::communicator &);
+	int load();
 	int unload();
 	int run(std::string, alchemist::Parameters &, alchemist::Parameters &);
 };
 
 // Class factories
-extern "C" Library * create(boost::mpi::communicator & _world, boost::mpi::communicator & _peers) {
-    return new AlLib(_world, _peers);
+extern "C" Library * create(boost::mpi::communicator & world, boost::mpi::communicator & peers) {
+    return new AlLib(world, peers);
 }
 
 extern "C" void destroy(Library * p) {

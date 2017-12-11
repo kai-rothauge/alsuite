@@ -1,6 +1,6 @@
 package allib
 
-import allib.util.ConsolePrinter
+import alchemist.util.ConsolePrinter
 import alchemist._
 import org.apache.spark.SparkContext
 import org.apache.spark.mllib.linalg.DenseVector
@@ -22,7 +22,7 @@ import scala.compat.Platform.EOL
 
 
 object AlLib {
-  
+    
   val libraryName: String = "AlLib"
   var libraryPath: String = sys.env("ALLIB_DYLIB")
   
@@ -40,7 +40,6 @@ object AlLib {
   
   def getRegistrationInfo = (libraryName, libraryPath)
 }
-
 
 
 

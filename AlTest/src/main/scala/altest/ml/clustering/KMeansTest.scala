@@ -17,17 +17,19 @@ import org.apache.spark.mllib.linalg.distributed.{IndexedRow, IndexedRowMatrix}
 import breeze.linalg.{DenseVector => BDV, max, min, DenseMatrix => BDM, norm, diag, svd}
 import breeze.numerics._
 // others
-import alchemist._
-import alchemist.util.{ConsolePrinter => cp}
+import alchemist.Alchemist
+import alchemist.util.ConsolePrinter
+import altest.util.{DataGenerator, DataLoader}
 import allib.AlLib
 import allib.ml.clustering.{KMeans => alKMeans}
+import altest.PerfTest
 
 //import altest.util.{DataGenerator, DataLoader}
 
 import scala.math
 import java.io._
 
-abstract class ClusteringTest(spark: SparkSession, al: Alchemist) extends PerfTest {
+abstract class ClusteringTest(spark: SparkSession, cp: ConsolePrinter) extends PerfTest(cp) {
 
   var numIterations: Int = _
   var k: Int = _
@@ -41,7 +43,6 @@ abstract class ClusteringTest(spark: SparkSession, al: Alchemist) extends PerfTe
   val CHANGE_THRESHOLD = ("change-threshold", "Change threshold for cluster centers",   "Double", false)
   
   parser.addOptionsToParser(NUM_CENTERS, NUM_ITERATIONS, CHANGE_THRESHOLD)
-  
   
   var NUM_EXAMPLES: (String, String, String, Boolean) = _
   var NUM_FEATURES: (String, String, String, Boolean) = _
@@ -114,9 +115,9 @@ abstract class ClusteringTest(spark: SparkSession, al: Alchemist) extends PerfTe
 }
 
 // K-Means Clustering
-class KMeansTest(spark: SparkSession, al: Alchemist) extends ClusteringTest(spark, al) {
+class KMeansTest(spark: SparkSession, cp: ConsolePrinter) extends ClusteringTest(spark, cp) {
   
-  al.registerLibrary(AlLib.getRegistrationInfo)
+  Alchemist.registerLibrary(AlLib.getRegistrationInfo)
 
   override def loadTestSettings(): Unit = {
     numIterations = parser.getOptionValue[Int](NUM_ITERATIONS)
@@ -179,24 +180,24 @@ class KMeansTest(spark: SparkSession, al: Alchemist) extends ClusteringTest(spar
     val (sortedLabels, indexedMat) = splitLabelVec(labelVecRDD1)
     cp.println("Time cost of creating indexed vectors and labels:                 %6.4fs".format((System.nanoTime() - t1)*1.0E-9))
     
-    // Convert Spark IndexedRowMatrix to Alchemist AlMatrix
-    t1 = System.nanoTime()
-    val alMatkMeans = AlMatrix(al, indexedMat)
-    cp.println("Time cost of converting Spark matrix to Alchemist matrix:         %6.4fs".format((System.nanoTime() - t1)*1.0E-9))
+//    // Convert Spark IndexedRowMatrix to Alchemist AlMatrix
+//    t1 = System.nanoTime()
+//    val alMatkMeans = AlMatrix(al, indexedMat)
+//    cp.println("Time cost of converting Spark matrix to Alchemist matrix:         %6.4fs".format((System.nanoTime() - t1)*1.0E-9))
     
     // K-Means Clustering by Alchemist
     t1 = System.nanoTime()
-    val (centers, assignments, numIters) = alKMeans(alMatkMeans, k, numIterations, threshold)
+    val (centers, assignments, numIters) = alKMeans.train(indexedMat, k, numIterations, threshold)
     cp.println("Time cost of Alchemist k-means clustering:                        %6.4fs".format((System.nanoTime() - t1)*1.0E-9))
     
     // Collect the clustering results
     t1 = System.nanoTime()
-    val indexPredLabels = alAssignments.rows.map(row => (row.index, row.vector.toArray(0).toInt)).collect
+    val indexPredLabels = assignments.rows.map(row => (row.index, row.vector.toArray(0).toInt)).collect
     
     cp.println("Time cost of sending alchemist cluster assignments back to local: %6.4fs".format((System.nanoTime() - t1)*1.0E-9))
     
     val sortedPredLabels = indexPredLabels.sortWith(_._1 < _._1)
-                                    .map(pair => pair._2)
+                                          .map(pair => pair._2)
     val labels = (sortedLabels zip sortedPredLabels).map(pair => pair._1.toString + " " + pair._2.toString)
     val labelStr: String = (labels mkString " ").trim
     

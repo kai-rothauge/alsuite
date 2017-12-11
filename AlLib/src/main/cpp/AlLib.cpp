@@ -4,8 +4,7 @@ using alchemist::Parameters;
 
 namespace allib {
 
-int AlLib::load(boost::mpi::communicator & _world,
-		boost::mpi::communicator & _peers) {
+int AlLib::load() {
 
 	bool isDriver = world.rank() == 0;
 	log = (isDriver) ? start_log("AlLib driver") : start_log("AlLib worker");
@@ -36,17 +35,14 @@ int AlLib::run(std::string task, Parameters & input, Parameters & output) {
 //		kmeans.set_world(world);
 //		kmeans.set_peers(peers);
 		kmeans->set_parameters(num_centers, max_iterations, epsilon, init_mode, init_steps, seed);
-
-		bool isDriver = world.rank() == 0;
-		if (!isDriver)
-			kmeans->set_data_matrix(input.get_distmatrix("data"));
+		kmeans->set_data_matrix(input.get_distmatrix("data"));
 		kmeans->run(output);
 	}
-	else if (task.compare("svd") == 0) {
-		SVD * svd = new SVD(log, world, peers);
-
-		svd->run(output);
-	}
+//	else if (task.compare("svd") == 0) {
+//		SVD * svd = new SVD(log, world, peers);
+//
+//		svd->run(output);
+//	}
 
 	return 0;
 }

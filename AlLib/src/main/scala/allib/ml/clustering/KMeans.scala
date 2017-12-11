@@ -25,7 +25,7 @@ object KMeans {
 
     val clusters = Alchemist.getIndexedRowMatrix(outParameters.getMatrixHandle("clusters"))
     val assignments = Alchemist.getIndexedRowMatrix(outParameters.getMatrixHandle("assignments"))
-    val numIters = outParameters.getInt("numIters")
+    val numIters = outParameters.getInt("num_iterations")
     
     (clusters, assignments, numIters)
   }
