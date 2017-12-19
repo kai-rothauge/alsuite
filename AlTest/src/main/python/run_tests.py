@@ -83,9 +83,9 @@ should_prep_tests = run_tests and config.PREP_TESTS
 #     # Ensure all shutdowns have completed (no executors are running).
 #     cluster.ensure_spark_stopped_on_slaves()
 
-print("Building AlTest")
 Tests.initialize(config)
 if should_prep_tests:
+    print("Building AlTest")
     Tests.build()
 elif run_tests:
     assert Tests.is_built(), "You tried to skip packaging the AlTest, but %s was not already present" % Tests.test_jar_path

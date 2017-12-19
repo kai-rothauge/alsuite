@@ -80,7 +80,7 @@ class Tests(object):
         for i in cls.config.OUTPUT_SETTINGS:
             output_settings.append(i.to_array()[0])
         
-        main_class = "alchemist.TestRunner"
+        main_class = "altest.AlTest"
 
         for meta_data, opt_sets in tests_to_run:
             print(OUTPUT_DIVIDER_STRING + '\n')
@@ -150,7 +150,7 @@ class Tests(object):
         spark_submit = "spark-submit"
 
         cmd = "%s %s --class %s %s %s %s %s" % (
-            spark_submit, " ".join(spark_settings), main_class, cls.test_jar_path, 
+            spark_submit, (" ".join(spark_settings)).replace('=', ' '), main_class, cls.test_jar_path, 
             " ".join(output_settings), " ".join(meta_settings), " ".join(opt_list))
         return cmd
 

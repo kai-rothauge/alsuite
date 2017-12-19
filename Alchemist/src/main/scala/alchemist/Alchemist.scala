@@ -56,33 +56,44 @@ object Alchemist {
     val workerIds = context.workerIds
     // rowWorkerAssignments is an array of WorkerIds whose ith entry is the world rank of the alchemist worker
     // that will take the ith row (ranging from 0 to numworkers-1). Note 0 is an executor, not the driver
-    val (handle, rowWorkerAssignments) = client.sendNewMatrix(mat.numRows, mat.numCols)
-    mat.rows.mapPartitionsWithIndex { (idx, part) =>
-      val rows = part.toArray
-      val relevantWorkers = rows.map(row => rowWorkerAssignments(row.index.toInt).id).distinct.map(id => new WorkerId(id))
-      val maxWorkerId = relevantWorkers.map(node => node.id).max
-      var nodeClients = Array.fill(maxWorkerId+1)(None: Option[WorkerClient])
-      System.err.println(s"Connecting to ${relevantWorkers.length} workers")
-      relevantWorkers.foreach(node => nodeClients(node.id) = Some(context.connectWorker(node)))
-      System.err.println(s"Successfully connected to all workers")
-
-      // TODO: randomize the order the rows are sent in to avoid queuing issues?
-      var count = 0
-      rows.foreach{ row =>
-        count += 1
-//        System.err.println(s"Sending row ${row.index.toInt}, ${count} of ${rows.length}")
-        nodeClients(rowWorkerAssignments(row.index.toInt).id).get.
-          newMatrixAddRow(handle, row.index, row.vector.toArray)
-      }
-      System.err.println("Finished sending rows")
-      nodeClients.foreach(client => 
-          if (client.isDefined) {
-            client.get.newMatrixPartitionComplete(handle)
-            client.get.close()
-          })
-      Iterator.single(true)
-    }.count
-    handle
+    try {
+      val (handle, rowWorkerAssignments) = client.sendNewMatrix(mat.numRows, mat.numCols)
+      
+      mat.rows.mapPartitionsWithIndex { (idx, part) =>
+        val rows = part.toArray
+        val relevantWorkers = rows.map(row => rowWorkerAssignments(row.index.toInt).id).distinct.map(id => new WorkerId(id))
+        val maxWorkerId = relevantWorkers.map(node => node.id).max
+        var nodeClients = Array.fill(maxWorkerId+1)(None: Option[WorkerClient])
+        System.err.println(s"Connecting to ${relevantWorkers.length} workers")
+        relevantWorkers.foreach(node => nodeClients(node.id) = Some(context.connectWorker(node)))
+        System.err.println(s"Successfully connected to all workers")
+  
+        // TODO: randomize the order the rows are sent in to avoid queuing issues?
+        var count = 0
+        rows.foreach{ row =>
+          count += 1
+  //        System.err.println(s"Sending row ${row.index.toInt}, ${count} of ${rows.length}")
+          nodeClients(rowWorkerAssignments(row.index.toInt).id).get.
+            newMatrixAddRow(handle, row.index, row.vector.toArray)
+        }
+        System.err.println("Finished sending rows")
+        nodeClients.foreach(client => 
+            if (client.isDefined) {
+              client.get.newMatrixPartitionComplete(handle)
+              client.get.close()
+            })
+        Iterator.single(true)
+      }.count
+      
+      client.sendNewMatrixDone()
+      
+      handle
+    }
+    catch {
+      case protocol: ProtocolException => System.err.println("Blech!")
+      stop()
+      new MatrixHandle(0)
+    }
   }
   
   // Caches result by default, because may not want to recreate (e.g. if delete referenced matrix on Alchemist side to save memory)

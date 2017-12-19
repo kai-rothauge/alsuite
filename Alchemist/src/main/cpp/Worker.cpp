@@ -223,7 +223,7 @@ struct WorkerClientReceiveHandler {
 };
 
 Worker::Worker(boost::mpi::environment & _env, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) :
-    Executor(_env, _world, _peers), id(_world.rank() - 1), listenSock(-1) {
+    Executor(_env, _world, _peers), id(_world.rank() - 1), grid(El::mpi::Comm(_peers)), listenSock(-1) {
 
     ENSURE(peers.rank() == world.rank() - 1);
     log = start_log(str(format("worker-%d") % world.rank()));
@@ -387,6 +387,7 @@ int Worker::receive_new_matrix() {
 	boost::mpi::broadcast(world, num_cols, 0);
 
 	MatrixHandle handle{handle_ID};
+	world.barrier();
 
 	log->info("Creating new distributed matrix");
 	DistMatrix * matrix = new El::DistMatrix<double, El::MD, El::STAR>(num_rows, num_cols, grid);
@@ -399,6 +400,7 @@ int Worker::receive_new_matrix() {
 	rows_on_worker.reserve(num_rows);
 	for (El::Int row_index = 0; row_index < num_rows; ++row_index)
 		if (matrix->IsLocalRow(row_index)) rows_on_worker.push_back(row_index);
+
 
 	for (int worker_index = 1; worker_index < world.size(); worker_index++) {
 		if (world.rank() == worker_index) world.send(0, 0, rows_on_worker);
@@ -444,18 +446,33 @@ int Worker::matrix_multiply() {
 	boost::mpi::broadcast(world, input_mat_B_ID, 0);
 	boost::mpi::broadcast(world, result_mat_ID, 0);
 
-	MatrixHandle input_A_handle{input_mat_A_ID};
-	MatrixHandle input_B_handle{input_mat_B_ID};
-	MatrixHandle result_handle{result_mat_ID};
+	MatrixHandle input_mat_A_handle{input_mat_A_ID};
+	MatrixHandle input_mat_B_handle{input_mat_B_ID};
+	MatrixHandle result_mat_handle{result_mat_ID};
 
-	log->info("Multiplying matrices {} and {}", input_A_handle.ID, input_B_handle.ID);
+	log->info("Multiplying matrices {} and {}", input_mat_A_handle.ID, input_mat_B_handle.ID);
 
-	auto m = matrices[input_A_handle]->Height();
-	auto n = matrices[input_B_handle]->Width();
+	auto m = matrices[input_mat_A_handle]->Height();
+	auto n = matrices[input_mat_B_handle]->Width();
 
 	DistMatrix * matrix = new El::DistMatrix<double, El::MC, El::MR, El::BLOCK>(m, n, grid);
-	ENSURE(matrices.insert(std::make_pair(result_handle, std::unique_ptr<DistMatrix>(matrix))).second);
-	El::Gemm(El::NORMAL, El::NORMAL, 1.0, *matrices[input_A_handle], *matrices[input_B_handle], 0.0, *matrix);
+	ENSURE(matrices.insert(std::make_pair(result_mat_handle, std::unique_ptr<DistMatrix>(matrix))).second);
+	El::Gemm(El::NORMAL, El::NORMAL, 1.0, *matrices[input_mat_A_handle], *matrices[input_mat_B_handle], 0.0, *matrix);
+//	for (int i = 0; i < m; i++)
+//		log->info("i {} {}", i, matrix->IsLocalRow(i));
+//	for (int j = 0; j < n; j++)
+//		log->info("j {} {}", j, matrix->IsLocalCol(j));
+	for (int i = 0; i < m; i++)
+			log->info("A {} {}", i, matrices[input_mat_A_handle]->Get(i,i));
+	for (int i = 0; i < m; i++)
+			log->info("B {} {}", i, matrices[input_mat_B_handle]->Get(i,i));
+	for (int i = 0; i < m; i++)
+			log->info("C {} {}", i, matrix->Get(i,i));
+	  std::cerr << "ZH " << grid.Height() << " x " << grid.Width() << std::endl;
+	  El::Display(*matrices[input_mat_A_handle], "A:");
+	  El::Display(*matrices[input_mat_B_handle], "B:");
+	  El::Display(*matrix, "A*B:");
+	  El::Display(*matrices[result_mat_handle], "A*B:");
 
 	log->info("Finished matrix multiplication call");
 	world.barrier();
@@ -539,6 +556,7 @@ int Worker::send_matrix_rows(MatrixHandle handle, size_t num_cols, const std::ve
 					int clientSock = accept(listenSock, reinterpret_cast<sockaddr*>(&addr), &addrlen);
 					ENSURE(addrlen == sizeof(addr));
 					ENSURE(fcntl(clientSock, F_SETFL, O_NONBLOCK) != -1);
+
 					std::unique_ptr<WorkerClientSendHandler> client(new WorkerClientSendHandler(clientSock, log, handle, num_cols, local_row_indices, local_data));
 					clients.push_back(std::move(client));
 				} else {
@@ -555,12 +573,14 @@ int Worker::send_matrix_rows(MatrixHandle handle, size_t num_cols, const std::ve
 
 int Worker::receive_matrix_blocks(MatrixHandle handle) {
 
+	bool debug = false;
+
 	std::vector<std::unique_ptr<WorkerClientReceiveHandler> > clients;
 	std::vector<pollfd> pfds;
 	uint64_t num_remaining_rows = matrices[handle].get()->LocalHeight();
 
 	while (num_remaining_rows > 0) {
-		//log->info("{} rows remaining", rowsLeft);
+		if (debug) log->info("{} rows remaining", num_remaining_rows);
 		pfds.clear();
 		for (auto it = clients.begin(); it != clients.end(); ) {
 			const auto & client = *it;
@@ -572,11 +592,13 @@ int Worker::receive_matrix_blocks(MatrixHandle handle) {
 			}
 		}
 		pfds.push_back(pollfd{listenSock, POLLIN});  	// Must be last entry
-		//log->info("Pushed active clients to the polling list and added listening socket");
+		if (debug) log->info("Pushed active clients to the polling list and added listening socket {}", pfds.size());
 		int count = poll(&pfds[0], pfds.size(), -1);
+		if (debug) log->info("Pushed active clients to the polling list and added listening socket");
 		if (count == -1 && (errno == EAGAIN || errno == EINTR)) continue;
+		if (debug) log->info("Pushed active clients to the polling list and added listening socket");
 		ENSURE(count != -1);
-		//log->info("Polled, now handling events");
+		if (debug) log->info("Polled, now handling events");
 		for (size_t i = 0; i < pfds.size() && count > 0; ++i) {
 			auto curSock = pfds[i].fd;
 			auto revents = pfds[i].revents;
@@ -591,10 +613,10 @@ int Worker::receive_matrix_blocks(MatrixHandle handle) {
 					ENSURE(fcntl(clientSock, F_SETFL, O_NONBLOCK) != -1);
 					std::unique_ptr<WorkerClientReceiveHandler> client(new WorkerClientReceiveHandler(clientSock, log, handle, matrices[handle].get()));
 					clients.push_back(std::move(client));
-					//log->info("Added new client");
+					if (debug) log->info("Added new client");
 				} else {
 					ENSURE(clients[i]->sock == curSock);
-					//log->info("Handling a client's events");
+					if (debug) log->info("Handling a client's events");
 					num_remaining_rows -= clients[i]->handle_event(revents);
 				}
 			}

@@ -26,12 +26,10 @@ struct Executor : Logger {
 	boost::mpi::communicator & world;
 	boost::mpi::communicator & peers;
 
-	El::Grid grid;
-
 	std::map<std::string, LibraryInfo> libraries;
 
 	Executor(boost::mpi::environment & _env, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) :
-		Logger(), env(_env), world(_world), peers(_peers), grid(El::mpi::Comm(peers)) {}
+		Logger(), env(_env), world(_world), peers(_peers) {}
 
 	virtual int run() = 0;
 
@@ -95,6 +93,8 @@ struct Worker : Executor {
 	WorkerId id;
 	int listenSock;
 	std::map<MatrixHandle, std::shared_ptr<DistMatrix> > matrices;
+
+	El::Grid grid;
 
 	Worker(boost::mpi::environment &, boost::mpi::communicator &, boost::mpi::communicator &);
 

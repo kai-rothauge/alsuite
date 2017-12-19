@@ -110,22 +110,26 @@ class DriverClient(val istream: InputStream, val ostream: OutputStream) {
     val handle = new MatrixHandle(input.readInt())
     System.err.println(s"Got handle: ${handle.id}")
 
-    // alchemist returns an array whose ith entry is the world rank of the alchemist
-    // worker that will take the ith row
-    // workerIds on the spark side start at 0, so subtract 1
     if (input.readInt() != 0x1) {
       throw new ProtocolException()
     }
     var rowWorkerAssignments : Array[WorkerId] = new Array[WorkerId](rows.toInt)
     var rawrowWorkerAssignments : Array[Int] = new Array[Int](rows.toInt)
-    for( i <- 0 until rows.toInt) {
+    // Alchemist returns an array whose ith entry is the world rank of the Alchemist
+    // worker that will take the ith row workerIds on the spark side start at 0, so subtract 1
+    for (i <- 0 until rows.toInt) {
       rowWorkerAssignments(i) = new WorkerId(input.readInt() - 1)
       rawrowWorkerAssignments(i) = rowWorkerAssignments(i).id
     }
-    val spacer = " "
-    //System.err.println(s"row assignments: ${rawrowWorkerAssignments.distinct.mkString(spacer)}")
-
+    
     return (handle, rowWorkerAssignments)
+  }
+  
+  def sendNewMatrixDone(): Unit = {
+    
+    if (input.readInt() != 0x1) {
+      throw new ProtocolException()
+    }
   }
 
   def getMatrixDimensions(handle: MatrixHandle): Tuple2[Long, Int] = {

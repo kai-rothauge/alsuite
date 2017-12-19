@@ -245,7 +245,7 @@ int Driver::receive_new_matrix() {
 	uint64_t num_cols = input.read_long();
 
 	MatrixHandle handle = register_matrix(num_rows, num_cols);
-	log->info("Receiving new matrix {}, with dimensions {}x{}", handle, num_rows, num_cols);
+	log->info("Receiving new matrix {}, with dimensions {}x{}", handle.ID, num_rows, num_cols);
 
 	boost::mpi::broadcast(world, handle.ID, 0);
 	boost::mpi::broadcast(world, num_rows, 0);
@@ -254,6 +254,7 @@ int Driver::receive_new_matrix() {
 	output.write_int(0x1);
 	output.write_int(handle.ID);
 	output.flush();
+	world.barrier();
 
 	// Tell Spark which worker expects each row
 	std::vector<int> row_worker_assignments(num_rows, 0);
@@ -267,15 +268,16 @@ int Driver::receive_new_matrix() {
 
 	log->info("Sending list of which worker each row should go to");
 	output.write_int(0x1);
-	for (auto worker_index: row_worker_assignments) output.write_int(worker_index);
+	for (auto worker_index: row_worker_assignments) {
+		output.write_int(worker_index);
+	}
 	output.flush();
 
 	log->info("Waiting for Spark to finish sending data to the workers");
 	world.barrier();
-	log->info("Entire matrix has been received");
-
 	output.write_int(0x1);
 	output.flush();
+	log->info("Entire matrix has been received");
 
 	return 0;
 }
@@ -319,7 +321,7 @@ int Driver::matrix_multiply() {
 
 	MatrixHandle input_A_handle{input.read_int()};
 	MatrixHandle input_B_handle{input.read_int()};
-	log->info("Multiplying matrices {} and {}", input_A_handle, input_B_handle);
+	log->info("Multiplying matrices {} and {}", input_A_handle.ID, input_B_handle.ID);
 
 	auto num_rows = matrices[input_A_handle].num_rows;
 	auto num_cols = matrices[input_B_handle].num_cols;
@@ -350,7 +352,7 @@ int Driver::get_matrix_rows() {
 	for(uint64_t part = 0; part < layout_length; ++part) {
 		layout.push_back(input.read_int());
 	}
-	log->info("Returning matrix {} to Spark", handle);
+	log->info("Returning matrix {} to Spark", handle.ID);
 
 	boost::mpi::broadcast(world, handle.ID, 0);
 	boost::mpi::broadcast(world, layout, 0);

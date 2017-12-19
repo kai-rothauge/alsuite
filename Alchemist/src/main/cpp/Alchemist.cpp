@@ -5,6 +5,7 @@ int main(int argc, char *argv[]) {
 	using namespace alchemist;
 	boost::mpi::environment env;
 	boost::mpi::communicator world;
+
 	bool isDriver = world.rank() == 0;
 	boost::mpi::communicator peers = world.split(isDriver ? 0 : 1);
 

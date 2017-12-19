@@ -19,7 +19,7 @@ from config_utils import Setting, FlagSet, JavaOptionSet, OptionSet, ConstantOpt
 RUN_TESTS = True
 
 # Set this to true for the first installation or whenever you make a change to the tests.
-PREP_TESTS = True
+PREP_TESTS = False
 
 # Version number of Alchemist
 ALTEST_VERSION = "0.1"
@@ -190,9 +190,9 @@ if RUN_LIN_ALG_TEST:
         
         if GENERATE_DATA:
             MATRIX_MULT_TEST_OPTS = COMMON_OPTS + [
-                OptionSet("M", [5000]),              # Number of rows of matrix A
-                OptionSet("K", [2000]),              # Number of columns of matrix A/rows of matrix B
-                OptionSet("N", [5000]),              # Number of columns of matrix B
+                OptionSet("M", [10]),              # Number of rows of matrix A
+                OptionSet("K", [50]),              # Number of columns of matrix A/rows of matrix B
+                OptionSet("N", [10]),              # Number of columns of matrix B
                 OptionSet("scale-A", [10]),         # Scaling parameter for matrix A
                 OptionSet("scale-B", [1])           # Scaling parameter for matrix B
             ]

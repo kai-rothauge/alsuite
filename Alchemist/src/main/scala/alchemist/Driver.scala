@@ -43,7 +43,8 @@ class Driver {
             listenSock.getLocalPort().toString())
       }
     }
-    pb.redirectError(ProcessBuilder.Redirect.INHERIT).start
+//    pb.redirectError(ProcessBuilder.Redirect.INHERIT).start
+    pb.redirectError(ProcessBuilder.Redirect.INHERIT).redirectOutput(ProcessBuilder.Redirect.INHERIT).start
   }
     
   val driverSock = listenSock.accept()
