@@ -9,7 +9,7 @@ The Alchemist framework has a modular structure in order to achieve flexibility 
 
 See below for a schematic representation in the case of one MPI library:
 
-![Alchemist Structure](https://github.com/kai-rothauge/alsuite/blob/master/alchemist_framework.png)
+![alchemist_framework](https://user-images.githubusercontent.com/17465775/34172979-7bc65354-e4fc-11e7-804c-180c2dd3197a.png)
 
 We also distinguish between the Spark side and the MPI side: 
 * The Spark (or Scala) side consists of the Spark application, the Spark-Alchemist interface for each library, and the Alchemist subsystem that takes in a Spark-based data structure. This part of the core Alchemist code is written in Scala, and it is expected that the Spark application and interface are written in Scala as well, although this requirement may be eased at some point.
