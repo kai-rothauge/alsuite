@@ -26,7 +26,7 @@
 #include "include/Parameters.hpp"
 #include "include/Library.hpp"
 #include "utility/Logger.hpp"
-//#include "nla/nla.hpp"						// Include all NLA routines
+#include "nla/nla.hpp"						// Include all NLA routines
 #include "ml/ml.hpp"							// Include all ML/Data-mining routines
 
 namespace allib {

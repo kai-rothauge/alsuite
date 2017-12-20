@@ -62,8 +62,12 @@ int Executor::run_task(std::string args, Parameters & output_parameters) {
 	std::string library_name = *iter;
 	std::string task_name = *(++iter);
 
+	log->info("Received: {}", library_name);
+	log->info("Received: {}", task_name);
+
 	for (++iter; iter != tok.end(); ++iter) {
 		input_parameter = *(iter);
+		log->info("Received: {}", input_parameter);
 		deserialize_parameters(input_parameter, input_parameters);
 	}
 
@@ -113,31 +117,31 @@ void Executor::deserialize_parameters(std::string input_parameter, Parameters & 
 	std::string parameter_value = *(++tok_iter);
 
 	if (parameter_type.compare("i") == 0)
-		input_parameters.add(new IntParameter(parameter_name, std::stoi(parameter_value)));
+		input_parameters.add_int(parameter_name, std::stoi(parameter_value));
 	else if (parameter_type.compare("l") == 0)
-		input_parameters.add(new LongParameter(parameter_name, std::stol(parameter_value)));
+		input_parameters.add_long(parameter_name, std::stol(parameter_value));
 	else if (parameter_type.compare("ll") == 0)
-		input_parameters.add(new LongLongParameter(parameter_name, std::stoll(parameter_value)));
+		input_parameters.add_longlong(parameter_name, std::stoll(parameter_value));
 	else if (parameter_type.compare("u") == 0)
-		input_parameters.add(new UnsignedParameter(parameter_name, std::stoi(parameter_value)));
+		input_parameters.add_unsigned(parameter_name, std::stoi(parameter_value));
 	else if (parameter_type.compare("ul") == 0)
-		input_parameters.add(new UnsignedLongParameter(parameter_name, std::stoul(parameter_value)));
+		input_parameters.add_unsignedlong(parameter_name, std::stoul(parameter_value));
 	else if (parameter_type.compare("ull") == 0)
-		input_parameters.add(new UnsignedLongLongParameter(parameter_name, std::stoull(parameter_value)));
+		input_parameters.add_unsignedlonglong(parameter_name, std::stoull(parameter_value));
 	else if (parameter_type.compare("ld") == 0)
-		input_parameters.add(new LongDoubleParameter(parameter_name, std::stold(parameter_value)));
+		input_parameters.add_longdouble(parameter_name, std::stold(parameter_value));
 	else if (parameter_type.compare("d") == 0)
-		input_parameters.add(new DoubleParameter(parameter_name, std::stod(parameter_value)));
+		input_parameters.add_double(parameter_name, std::stod(parameter_value));
 	else if (parameter_type.compare("f") == 0)
-		input_parameters.add(new FloatParameter(parameter_name, std::stof(parameter_value)));
+		input_parameters.add_float(parameter_name, std::stof(parameter_value));
 	else if (parameter_type.compare("b") == 0)
-		input_parameters.add(new BoolParameter(parameter_name, parameter_value.compare("t") == 0));
+		input_parameters.add_bool(parameter_name, parameter_value.compare("t") == 0);
 	else if (parameter_type.compare("c") == 0)
-		input_parameters.add(new CharParameter(parameter_name, parameter_value[0]));
+		input_parameters.add_char(parameter_name, parameter_value[0]);
 	else if (parameter_type.compare("s") == 0)
-		input_parameters.add(new StringParameter(parameter_name, parameter_value));
+		input_parameters.add_string(parameter_name, parameter_value);
 	else if (parameter_type.compare("mh") == 0)
-		input_parameters.add(new MatrixHandleParameter(parameter_name, std::stoi(parameter_value)));
+		input_parameters.add_matrixhandle(parameter_name, std::stoi(parameter_value));
 }
 
 std::string Executor::serialize_parameters(const Parameters & output) const {

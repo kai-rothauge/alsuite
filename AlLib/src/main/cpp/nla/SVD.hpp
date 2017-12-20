@@ -23,16 +23,22 @@
 #include <boost/serialization/export.hpp>
 #include <boost/format.hpp>
 #include <boost/random.hpp>
+#include <boost/mpi.hpp>
+#include "arpackpp/arrssym.h"
 #include "../utility/Logger.hpp"
 #include "../include/Parameters.hpp"
 
-namespace allib {
 
 typedef El::AbstractDistMatrix<double> DistMatrix;
 
+using Eigen::MatrixXd;
+using Eigen::VectorXd;
+
 using alchemist::Parameters;
 
-class SVD : Logger {
+namespace allib {
+
+class SVD : public Logger {
 public:
 
 	SVD(std::shared_ptr<spdlog::logger> & _log, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) :
@@ -41,6 +47,11 @@ public:
 	boost::mpi::communicator & world;
 	boost::mpi::communicator & peers;
 	El::Grid grid;
+
+	int get_rank();
+	void set_rank(uint64_t _rank);
+
+	void set_data_matrix(DistMatrix * _A);
 
 	void set_log(std::shared_ptr<spdlog::logger> & _log) {
 		log = _log;
@@ -55,6 +66,11 @@ public:
 	}
 
 	int run(Parameters & output);
+
+private:
+	int rank;
+
+	DistMatrix * A;
 };
 
 }

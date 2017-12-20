@@ -417,6 +417,7 @@ public:
 	}
 
 	void add_distmatrix(string name, DistMatrix * value) {
+		std::cerr << "MMEEWWW" << std::endl;
 		distmatrix_parameters.insert(std::make_pair(name, new DistMatrixParameter(name, value)));
 	}
 

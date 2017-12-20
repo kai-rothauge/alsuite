@@ -6,6 +6,8 @@ int main(int argc, char *argv[]) {
 	boost::mpi::environment env;
 	boost::mpi::communicator world;
 
+	El::Initialize();
+
 	bool isDriver = world.rank() == 0;
 	boost::mpi::communicator peers = world.split(isDriver ? 0 : 1);
 
@@ -67,6 +69,8 @@ int main(int argc, char *argv[]) {
 		log->info("Alchemist has exited");
 	}
 	else status = Worker(env, world, peers).run();
+
+	El::Finalize();
 
 	return status;
 }

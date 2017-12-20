@@ -23,7 +23,7 @@
 #include <arpa/inet.h>
 #include <sys/stat.h>
 #include <eigen3/Eigen/Dense>
-#include "arpackpp/arrssym.h"
+//#include "arpackpp/arrssym.h"
 #include "spdlog/fmt/fmt.h"
 #include "spdlog/spdlog.h"
 // #include "spdlog/fmt/ostr.h"

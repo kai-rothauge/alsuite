@@ -9,11 +9,11 @@ The Alchemist framework has a modular structure in order to achieve flexibility 
 
 See below for a schematic representation in the case of one MPI library:
 
-![Alchemist Structure](https://github.com/kai-rothauge/alsuite/blob/master/alchemist_framework.png)
+![alchemist_framework](https://user-images.githubusercontent.com/17465775/34172979-7bc65354-e4fc-11e7-804c-180c2dd3197a.png)
 
 We also distinguish between the Spark side and the MPI side: 
-* The Spark (or Scala) side consists of the Spark application, the Spark-Alchemist interface for each library, and the Alchemist subsystem that takes in a Spark-based data structure. This part of the core Alchemist code is written in Scala, and it is expected that the Spark application and interface are written in Scala as well, although this requirement may be eased at some point.
-* The MPI (or C++) side consists of the MPI libraries, the library-Alchemist interface for each library, and the Alchemist subsystem that takes in the data from the Spark side and creates the distributed data structures that are needed by the libraries. This subsystem is written in C++ and it is expected that the library and its interface are also written in C++, although this requirement may also be eased at some point. 
+* The Spark (or application) side consists of the Spark application, the Spark-Alchemist interface for each library, and the Alchemist subsystem that takes in a Spark-based data structure. This part of the core Alchemist code is written in Scala, and it is expected that the Spark application and interface are written in Scala as well, although this requirement may be eased at some point.
+* The MPI (or library) side consists of the MPI libraries, the library-Alchemist interface for each library, and the Alchemist subsystem that takes in the data from the Spark side and creates the distributed data structures that are needed by the libraries, and then returns the computed results to the Spark side. This subsystem is written in C++ and it is expected that the library and its interface are also written in C++, although this requirement may also be eased at some point. 
 
 For now we require that the MPI libraries use the Elemental library and Boost MPI.
 
@@ -40,23 +40,21 @@ The following dependencies are required by AlLib and the MPI side of Alchemist:
 ## Alchemist Dependencies
 
 The MPI side of the core Alchemist code requires the following supporting libraries:
-* Elemental: For distributing the matrices between Alchemist processes and distributed linear algebra.
-* SPDLog: For thread-safe logging during execution.
+* Elemental: For distributing the matrices between Alchemist processes and distributed linear algebra
+* SPDLog: For thread-safe logging during execution
+* Eigen3: For local matrix manipulations (more convenient interface than Elemental)
 
 ## AlLib Dependencies
 
-AlLib requires the following supporting libraries:
-* Elemental: For distributing the matrices between Alchemist processes and distributed linear algebra.
-* SPDLog: For thread-safe logging during execution.
-* Eigen3 -- used for local matrix manipulations (more convenient interface than Elemental)
-* Arpack-ng -- for the computation of truncated SVDs
-* Arpackpp -- very convenient C++ interface to Arpack-ng
+AlLib additionally requires the following supporting libraries:
+* Arpack-ng: For the computation of truncated SVDs
+* Arpackpp: Very convenient C++ interface to Arpack-ng
 
 See below for installation instructions for each of these libraries.
 
 # Installation instructions
 
-## MacOS 10.12
+## MacOS
 
 ### Prerequisites
 
@@ -152,13 +150,13 @@ cd ../..
 rm -rf arpackpp
 ```
 
-Note that the installation paths to Arpack-ng and Arpackpp should be the same.
+Note that the installation paths for Arpack-ng and Arpackpp should be the same.
 
 ### Update Makefiles
 
 The following makefiles need to be updated:
-* In ``$(ALSUITE_PATH)\Alchemist\Makefile``, set ``ELEMENTAL_PATH`` and ``SPDLOG_PATH`` (at the top of the file) to the relevant directories.
-* In ``$(ALSUITE_PATH)\AlLib\Makefile``, set ``ELEMENTAL_PATH``, ``SPDLOG_PATH``, ``EIGEN3_PATH`` and ``ARPACK_PATH`` (at the top of the file) to the relevant directories.
+* In ``$(ALSUITE_PATH)\Alchemist\Makefile``, set ``ELEMENTAL_PATH``, ``EIGEN3_PATH`` and ``SPDLOG_PATH`` (at the top of the file) to the relevant directories.
+* In ``$(ALSUITE_PATH)\AlLib\Makefile``, set ``ELEMENTAL_PATH``, ``EIGEN3_PATH``, ``SPDLOG_PATH`` and ``ARPACK_PATH`` (at the top of the file) to the relevant directories.
 
 Alternatively, one can add the above paths to the bash profile.
 

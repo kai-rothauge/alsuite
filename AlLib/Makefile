@@ -1,4 +1,4 @@
-ALLIB_PATH ?= $(HOME)/Projects/AlSuite/AlLib
+ALLIB_PATH ?= $(ALSUITE_PATH)/AlLib
 ELEMENTAL_PATH ?= $(HOME)/Software/Elemental
 EIGEN3_PATH ?= $(HOME)/Software/Eigen3
 SPDLOG_PATH ?= $(HOME)/Software/SPDLog
@@ -69,7 +69,7 @@ endif
 #	rm -rf $(TARGET_PATH)
 	
 	
-MODULES   := main/cpp main/cpp/ml/clustering
+MODULES   := main/cpp main/cpp/ml/clustering main/cpp/nla
 SRC_DIR   := $(addprefix src/,$(MODULES))
 BUILD_DIR := $(addprefix target/,$(MODULES))
 

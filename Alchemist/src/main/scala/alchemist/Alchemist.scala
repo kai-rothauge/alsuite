@@ -132,8 +132,22 @@ object Alchemist {
     getIndexedRowMatrix(client.getTranspose(getMatrixHandle(mat)))
   }
   
-  def matrixMultiply(matA: IndexedRowMatrix, matB: IndexedRowMatrix): IndexedRowMatrix = {
-    getIndexedRowMatrix(client.matrixMultiply(getMatrixHandle(matA), getMatrixHandle(matB)))
+  def matrixMultiply(matA: IndexedRowMatrix, matB: IndexedRowMatrix): (IndexedRowMatrix, Array[Double]) = {
+
+    var t1 = System.nanoTime()
+    val handleA = getMatrixHandle(matA)
+    val handleB = getMatrixHandle(matB)
+    val t2 = System.nanoTime() - t1
+    
+    t1 = System.nanoTime()
+    val handleC = client.matrixMultiply(handleA, handleB)
+    val t3 = System.nanoTime() - t1
+    
+    t1 = System.nanoTime()
+    val matC = getIndexedRowMatrix(handleC)
+    val t4 = System.nanoTime() - t1
+    
+    (matC, Array(t2, t3, t4))
   }
     
   def stop() = driver.stop()

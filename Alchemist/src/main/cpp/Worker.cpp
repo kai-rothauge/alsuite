@@ -77,7 +77,7 @@ struct WorkerClientSendHandler {
 							ENSURE(local_row_offset_iter != local_row_indices.end());
 							auto local_row_offset = local_row_offset_iter - local_row_indices.begin();
 							*reinterpret_cast<uint64_t*>(&outbuf[0]) = be64toh(num_cols * 8);
-							// treat the output as uint64_t[] instead of double[] to avoid type punning issues with be64toh
+							// Treat the output as uint64_t[] instead of double[] to avoid type punning issues with be64toh
 							auto invals = reinterpret_cast<const uint64_t*>(&local_data[num_cols * local_row_offset]);
 							auto outvals = reinterpret_cast<uint64_t*>(&outbuf[8]);
 							for (uint64_t i = 0; i < num_cols; ++i) outvals[i] = be64toh(invals[i]);
@@ -330,6 +330,7 @@ int Worker::process_input_parameters(Parameters & input_parameters) {
 	auto matrixhandles = input_parameters.get_matrixhandles();
 
 	for (auto it = matrixhandles.begin(); it != matrixhandles.end(); it++ ) {
+		log->info("LSKKS {}", it->second->get_value());
 		MatrixHandle handle{it->second->get_value()};
 		input_parameters.add_distmatrix(it->first, matrices[handle].get());
 	}
@@ -458,21 +459,6 @@ int Worker::matrix_multiply() {
 	DistMatrix * matrix = new El::DistMatrix<double, El::MC, El::MR, El::BLOCK>(m, n, grid);
 	ENSURE(matrices.insert(std::make_pair(result_mat_handle, std::unique_ptr<DistMatrix>(matrix))).second);
 	El::Gemm(El::NORMAL, El::NORMAL, 1.0, *matrices[input_mat_A_handle], *matrices[input_mat_B_handle], 0.0, *matrix);
-//	for (int i = 0; i < m; i++)
-//		log->info("i {} {}", i, matrix->IsLocalRow(i));
-//	for (int j = 0; j < n; j++)
-//		log->info("j {} {}", j, matrix->IsLocalCol(j));
-	for (int i = 0; i < m; i++)
-			log->info("A {} {}", i, matrices[input_mat_A_handle]->Get(i,i));
-	for (int i = 0; i < m; i++)
-			log->info("B {} {}", i, matrices[input_mat_B_handle]->Get(i,i));
-	for (int i = 0; i < m; i++)
-			log->info("C {} {}", i, matrix->Get(i,i));
-	  std::cerr << "ZH " << grid.Height() << " x " << grid.Width() << std::endl;
-	  El::Display(*matrices[input_mat_A_handle], "A:");
-	  El::Display(*matrices[input_mat_B_handle], "B:");
-	  El::Display(*matrix, "A*B:");
-	  El::Display(*matrices[result_mat_handle], "A*B:");
 
 	log->info("Finished matrix multiplication call");
 	world.barrier();
@@ -491,6 +477,7 @@ int Worker::get_matrix_rows() {
 
 	uint64_t num_local_rows = std::count(layout.begin(), layout.end(), id);
 	auto matrix = matrices[handle].get();
+
 	uint64_t num_cols = matrix->Width();
 
 	std::vector<uint64_t> local_row_indices; 			// Maps rows in the matrix to rows in the local storage
@@ -501,9 +488,7 @@ int Worker::get_matrix_rows() {
 	for (uint64_t i = 0; local_row_indices.size() < num_local_rows; i++) {
 		if (layout[i] == id) {
 			local_row_indices.push_back(i);
-			for (uint64_t col = 0; col < num_cols; col++) {
-				matrix->QueuePull(i, col);
-			}
+			for (uint64_t col = 0; col < num_cols; col++) matrix->QueuePull(i, col);
 		}
 	}
 	matrix->ProcessPullQueue(&local_data[0]);

@@ -20,6 +20,7 @@ int AlLib::unload() {
 int AlLib::run(std::string task, Parameters & input, Parameters & output) {
 
 	if (task.compare("kmeans") == 0) {
+
 		uint32_t num_centers    = input.get_int("k");
 		uint32_t max_iterations = input.get_int("max_iterations");		// How many iteration of Lloyd's algorithm to use
 		double epsilon          = input.get_double("epsilon");			// if all the centers change by Euclidean distance less
@@ -38,11 +39,15 @@ int AlLib::run(std::string task, Parameters & input, Parameters & output) {
 		kmeans->set_data_matrix(input.get_distmatrix("data"));
 		kmeans->run(output);
 	}
-//	else if (task.compare("svd") == 0) {
-//		SVD * svd = new SVD(log, world, peers);
-//
-//		svd->run(output);
-//	}
+	else if (task.compare("truncated_svd") == 0) {
+
+		SVD * svd = new SVD(log, world, peers);
+
+		svd->set_rank(input.get_int("rank"));
+		svd->set_data_matrix(input.get_distmatrix("data"));
+
+		svd->run(output);
+	}
 
 	return 0;
 }

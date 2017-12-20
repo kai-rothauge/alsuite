@@ -100,8 +100,6 @@ class WorkerClient(val hostname: String, val port: Int) {
     assert(numCols * 8 == inbuf.getLong())
     val vec = new Array[Double](numCols)
     inbuf.asDoubleBuffer().get(vec)
-    val nmnm = new DenseVector(vec) 
-    System.err.println(s"JSHFJSVJDJNVSJD: {$nmnm}")
     return new DenseVector(vec)
   }
 

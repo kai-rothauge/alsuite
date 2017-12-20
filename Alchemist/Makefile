@@ -1,29 +1,27 @@
-ALCHEMIST_PATH ?= $(HOME)/Projects/AlSuite/Alchemist
+ALCHEMIST_PATH ?= $(ALSUITE_PATH)/Alchemist
 ELEMENTAL_PATH ?= $(HOME)/Software/Elemental
 EIGEN3_PATH ?= $(HOME)/Software/Eigen3
 SPDLOG_PATH ?= $(HOME)/Software/SPDLog
-ARPACK_PATH ?= $(HOME)/Software/ARPACK
 
 include $(ELEMENTAL_PATH)/conf/ElVars
 
-SRC_PATH = src/main/cpp
-TARGET_PATH = target
+SRC_PATH = $(ALCHEMIST_PATH)/src/main/cpp
+TARGET_PATH = $(ALCHEMIST_PATH)/target
 
 # put libEl's CXXFLAGS in front so ours can override it
 CXXFLAGS += $(EL_COMPILE_FLAGS) -fdiagnostics-color=always
 #CXXFLAGS += -Wall
 CXXFLAGS += -Wno-unused -Wno-reorder -std=c++14 -fext-numeric-literals -fopenmp
 CXXFLAGS += "-I$(SRC_PATH)/utility"
-CXXFLAGS += "-I$(ELEMENTAL_PATH)/include" "-I$(EIGEN3_PATH)/include" "-I$(SPDLOG_PATH)/include" "-I$(ARPACK_PATH)/include"
+CXXFLAGS += "-I$(ELEMENTAL_PATH)/include" "-I$(EIGEN3_PATH)/include" "-I$(SPDLOG_PATH)/include"
 
 LDFLAGS += "-L$(EL_LIB)" "-Wl,-rpath,$(EL_LIB)" $(EL_LIBS)
 ifeq ($(shell uname), Darwin)
-LDFLAGS += -lboost_serialization-mt -lboost_mpi-mt -lboost_system-mt -larpack -lboost_thread-mt
+LDFLAGS += -lboost_serialization-mt -lboost_mpi-mt -lboost_system-mt -lboost_thread-mt
 else
-LDFLAGS += -lboost_serialization -lboost_mpi -lboost_system -larpack -lboost_thread 
+LDFLAGS += -lboost_serialization -lboost_mpi -lboost_system -lboost_thread 
 endif
-LDFLAGS += -Wl,-rpath,$(SPDLOG_PATH)/lib 
-LDFLAGS += -Wl,-rpath,$(ARPACK_PATH)/lib 
+LDFLAGS += -Wl,-rpath,$(SPDLOG_PATH)/lib
 
 # poor heuristic to check if on Cori, and fix a linkage issue that shouldn't be occurring
 ifeq ($(shell uname), Linux)

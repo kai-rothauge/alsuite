@@ -102,7 +102,6 @@ object AlTest {
     cp.tab
     var t1 = System.nanoTime()
     val appSparkName: String = "Alchemist: " + longName + " Test"
-    cp.println("appSparkName: " + appSparkName)
     val spark = SparkSession.builder().appName(appSparkName).getOrCreate()
     cp.println("Time cost of starting Spark session: %6.4fs".format((System.nanoTime() - t1)*1.0E-9))
     cp.println(" ")

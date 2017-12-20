@@ -57,7 +57,7 @@ OUTPUT_DIR = PROJ_DIR + "/results/"
 #          Bright Black, Bright Red, Bright Green, Bright Yellow,
 #          Bright Blue, Bright Magenta, Bright Cyan, Bright White
 # CONSOLE_COLOR_MAIN = "bright cyan"
-CONSOLE_COLOR = "white"       
+CONSOLE_COLOR = "bright green"       
                                     
 LOG_LEVEL = "all"                   # Options: all, none, error
 
@@ -102,7 +102,7 @@ COMMON_OPTS = [
 RUN_KMEANS_TEST              = False
 
 # Linear algebra tests
-RUN_SVD_TEST                 = False
+RUN_SVD_TEST                 = False 
 RUN_MATRIX_MULT_TEST         = True
 
 
@@ -161,7 +161,7 @@ if RUN_LIN_ALG_TEST:
         GENERATE_DATA = False
         
         SHORT_NAME  = "svd"
-        LONG_NAME   = "SVD"
+        LONG_NAME   = "Truncated SVD"
         SVD_META = [Setting("short-name", SHORT_NAME), Setting("long-name", LONG_NAME), Setting("generate-data", str(GENERATE_DATA))]
 
         SVD_TEST_OPTS = COMMON_OPTS + [
@@ -190,9 +190,9 @@ if RUN_LIN_ALG_TEST:
         
         if GENERATE_DATA:
             MATRIX_MULT_TEST_OPTS = COMMON_OPTS + [
-                OptionSet("M", [10]),              # Number of rows of matrix A
-                OptionSet("K", [50]),              # Number of columns of matrix A/rows of matrix B
-                OptionSet("N", [10]),              # Number of columns of matrix B
+                OptionSet("M", [2000]),              # Number of rows of matrix A
+                OptionSet("K", [1000]),              # Number of columns of matrix A/rows of matrix B
+                OptionSet("N", [2000]),              # Number of columns of matrix B
                 OptionSet("scale-A", [10]),         # Scaling parameter for matrix A
                 OptionSet("scale-B", [1])           # Scaling parameter for matrix B
             ]
