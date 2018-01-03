@@ -41,12 +41,11 @@ namespace allib {
 class SVD : public Logger {
 public:
 
-	SVD(std::shared_ptr<spdlog::logger> & _log, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) :
-			Logger(_log), world(_world), peers(_peers), grid(El::mpi::Comm(peers)) {}
+	SVD(std::shared_ptr<spdlog::logger> & _log, boost::mpi::communicator & _world, El::Grid * _grid) :
+			Logger(_log), world(_world), grid(_grid) {}
 
 	boost::mpi::communicator & world;
-	boost::mpi::communicator & peers;
-	El::Grid grid;
+	El::Grid * grid;
 
 	int get_rank();
 	void set_rank(uint64_t _rank);
@@ -61,8 +60,8 @@ public:
 		world = _world;
 	}
 
-	void set_peers(boost::mpi::communicator & _peers) {
-		peers = _peers;
+	void set_grid(El::Grid * _grid) {
+		grid = _grid;
 	}
 
 	int run(Parameters & output);

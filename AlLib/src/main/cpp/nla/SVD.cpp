@@ -20,13 +20,18 @@ int SVD::run(Parameters & output) {
 
 	if (world.rank() == 0) {
 
-		auto n = A->Height();
-		auto d = A->Width();
+		int m, n;
 
-		log->info("Starting truncated SVD on {}x{} matrix", n, d);
+		world.recv(1, 0, m);
+		world.recv(1, 0, n);
+
+		log->info("Starting truncated SVD on {}x{} matrix", m, n);
 		log->info("Settings:");
 		log->info("    rank = {}", rank);
 
+		world.barrier();
+
+		command = 0;
 		boost::mpi::broadcast(world, command, 0);		// Tell workers to start
 
 //		log->info("Starting truncated SVD computation");
@@ -56,8 +61,10 @@ int SVD::run(Parameters & output) {
 				log->info("Computed {} mv products", iterNum);
 			}
 			if (prob.GetIdo() == 1 || prob.GetIdo() == -1) {
+				world.barrier();
 				command = 1;
 				boost::mpi::broadcast(world, command, 0);
+				auto v = prob.GetVector();
 				boost::mpi::broadcast(world, prob.GetVector(), n, 0);
 				boost::mpi::reduce(world, zerosVector.data(), n, prob.PutVector(), std::plus<double>(), 0);
 			}
@@ -78,6 +85,7 @@ int SVD::run(Parameters & output) {
 		log->info("Copied right eigenvectors into allocated storage");
 
 		// Populate U, V, S
+		world.barrier();
 		command = 2;
 		boost::mpi::broadcast(world, command, 0);
 		boost::mpi::broadcast(world, nconv, 0);
@@ -97,25 +105,30 @@ int SVD::run(Parameters & output) {
 		world.barrier();
 	}
 	else {
+		int m = A->Height();
+		int n = A->Width();
 
-		int command;
+		if (world.rank() == 1) {
+			world.send(0, 0, m);
+			world.send(0, 0, n);
+		}
+
+		world.barrier();
+
 		boost::mpi::broadcast(world, command, 0);
 
 		if (command == 0) {
 			log->info("Started truncated SVD");
 
-			auto m = A->Height();
-			auto n = A->Width();
-
 			// Relayout matrix so it is row-partitioned
 			DistMatrix * workingMat;
-			std::unique_ptr<DistMatrix> dataMat_uniqptr{new El::DistMatrix<double, El::MD, El::STAR, El::ELEMENT>(m, n, grid)}; // so will delete this relayed out matrix once kmeans goes out of scope
+			std::unique_ptr<DistMatrix> dataMat_uniqptr{new El::DistMatrix<double, El::MD, El::STAR, El::ELEMENT>(m, n, *grid)}; // so will delete this relayed out matrix once kmeans goes out of scope
 			auto distData = A->DistData();
 			if (distData.colDist == El::MD && distData.rowDist == El::STAR) {
 				workingMat = A;
 			}
 			else {
-				log->info("detected matrix is not row-partitioned, so relayout-ing a copy to row-partitioned");
+				log->info("Detected matrix is not row-partitioned, so relayout-ing a copy to row-partitioned");
 				workingMat = dataMat_uniqptr.get();
 				auto relayoutStart = std::chrono::system_clock::now();
 				El::Copy(*A, *workingMat); // relayouts data so it is row-wise partitioned
@@ -165,10 +178,11 @@ int SVD::run(Parameters & output) {
 			log->info("Finished initialization for truncated SVD");
 
 			while (true) {
+				world.barrier();
 				boost::mpi::broadcast(world, command, 0);
 				if (command == 1) {
+					auto v = vecIn.get();
 					boost::mpi::broadcast(world, vecIn.get(), n, 0);
-
 					Eigen::Map<VectorXd> x(vecIn.get(), n);
 					auto startMvProd = std::chrono::system_clock::now();
 					VectorXd y = gramMat * x;
@@ -187,10 +201,10 @@ int SVD::run(Parameters & output) {
 					VectorXd singValsSq(nconv);
 					boost::mpi::broadcast(world, singValsSq.data(), nconv, 0);
 
-					DistMatrix * U = new El::DistMatrix<double, El::MC, El::MR, El::BLOCK>(m, nconv, grid);
-					DistMatrix * S = new El::DistMatrix<double, El::MC, El::MR, El::BLOCK>(nconv, 1, grid);
-					DistMatrix * Sinv = new El::DistMatrix<double, El::MC, El::MR, El::BLOCK>(nconv, 1, grid);
-					DistMatrix * V = new El::DistMatrix<double, El::MC, El::MR, El::BLOCK>(n, nconv, grid);
+					DistMatrix * U = new El::DistMatrix<double, El::MC, El::MR, El::BLOCK>(m, nconv, *grid);
+					DistMatrix * S = new El::DistMatrix<double, El::MC, El::MR, El::BLOCK>(nconv, 1, *grid);
+					DistMatrix * Sinv = new El::DistMatrix<double, El::MC, El::MR, El::BLOCK>(nconv, 1, *grid);
+					DistMatrix * V = new El::DistMatrix<double, El::MC, El::MR, El::BLOCK>(n, nconv, *grid);
 
 					output.add_distmatrix("U", U);
 					output.add_distmatrix("S", S);
@@ -208,6 +222,7 @@ int SVD::run(Parameters & output) {
 						if (Sinv->IsLocal(idx, 0))
 							Sinv->SetLocal(Sinv->LocalRow(idx), 0, 1/std::sqrt(singValsSq(idx)));
 					}
+					A->SetGrid(*grid);
 
 					// form U
 					El::Gemm(El::NORMAL, El::NORMAL, 1.0, *A, *V, 0.0, *U);
@@ -219,10 +234,8 @@ int SVD::run(Parameters & output) {
 			}
 
 			world.barrier();
-
 		}
 	}
-
 
 	return 0;
 }

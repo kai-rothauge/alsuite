@@ -38,6 +38,9 @@ abstract class ClusteringTest(spark: SparkSession, cp: ConsolePrinter) extends P
   var numExamples: Long = _
   var numFeatures: Int = _
   
+  var sparkTime: Double = _
+  var alTimes: Array[Double] = _
+  
   val NUM_CENTERS =      ("num-centers",      "Number of centers for clustering tests", "Int",    true)
   val NUM_ITERATIONS =   ("num-iterations",   "Number of iterations for the algorithm", "Int",    false)
   val CHANGE_THRESHOLD = ("change-threshold", "Change threshold for cluster centers",   "Double", false)
@@ -143,7 +146,8 @@ class KMeansTest(spark: SparkSession, cp: ConsolePrinter) extends ClusteringTest
   }
   
   override def outputTestConclusion(): Unit = {
-
+    
+    printTimes()
   }
     
   override def testSpark(): Unit = {  
@@ -160,8 +164,10 @@ class KMeansTest(spark: SparkSession, cp: ConsolePrinter) extends ClusteringTest
             .map(pair => pair._1.toString + " " + pair._2.toString)
             .collect()
     
+    sparkTime = System.nanoTime() - t1
+    
     // Print Info
-    cp.println("Time cost of Spark k-means clustering:                            %6.4fs".format((System.nanoTime() - t1)*1.0E-9))
+    cp.println("Time cost of Spark k-means clustering:                            %6.4fs".format(sparkTime*1.0E-9))
     cp.println("Final objective value:                                            %6.4f".format(validate(clusters, labelVecRDD1)))
     
     val labelStr: String = (labels mkString " ").trim
@@ -187,7 +193,8 @@ class KMeansTest(spark: SparkSession, cp: ConsolePrinter) extends ClusteringTest
     
     // K-Means Clustering by Alchemist
     t1 = System.nanoTime()
-    val (centers, assignments, numIters) = alKMeans.train(indexedMat, k, numIterations, threshold)
+    val (centers, assignments, numIters, alTimes0) = alKMeans.train(indexedMat, k, numIterations, threshold)
+    alTimes = alTimes0
     cp.println("Time cost of Alchemist k-means clustering:                        %6.4fs".format((System.nanoTime() - t1)*1.0E-9))
     
     // Collect the clustering results
@@ -203,6 +210,18 @@ class KMeansTest(spark: SparkSession, cp: ConsolePrinter) extends ClusteringTest
     
     // Write (true_label, predicted_label) pairs to file outfile
     alchemistResultsWriter.write(labelStr)
+  }
+  
+  def printTimes(): Unit = {
+    cp.println("Spark time cost:")
+    cp.println("    Spark K-Means Clustering:                           %6.4fs".format(sparkTime*1.0E-9))
+    cp.println("  ")
+    cp.println("Alchemist time costs:")
+    cp.println("    Converting Spark matrix to Alchemist matrix:        %6.4fs".format(alTimes(0)*1.0E-9))
+    cp.println("    Alchemist K-Means Clustering:                       %6.4fs".format(alTimes(1)*1.0E-9))
+    cp.println("    Converting Alchemist matrices to Spark matrices:    %6.4fs".format(alTimes(2)*1.0E-9))
+    cp.println("    -----------------------------------------------------------------")
+    cp.println("    Total:                                              %6.4fs".format((alTimes(0)+alTimes(1)+alTimes(2))*1.0E-9))
   }
   
   def splitLabelVec(labelVecRDD: RDD[(Int, Vector)]): (Array[Int], IndexedRowMatrix) = {

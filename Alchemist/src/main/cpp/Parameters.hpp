@@ -417,7 +417,6 @@ public:
 	}
 
 	void add_distmatrix(string name, DistMatrix * value) {
-		std::cerr << "MMEEWWW" << std::endl;
 		distmatrix_parameters.insert(std::make_pair(name, new DistMatrixParameter(name, value)));
 	}
 
@@ -508,6 +507,14 @@ public:
 			arg_list.append(it->second->to_string());
 			arg_list.append(" ");
 		}
+
+		for (auto it = matrixhandle_parameters.begin(); it != matrixhandle_parameters.end(); it++ ) {
+			arg_list.append(it->first);
+			arg_list.append("(mh)");
+			arg_list.append(it->second->to_string());
+			arg_list.append(" ");
+		}
+
 		return arg_list;
 	}
 

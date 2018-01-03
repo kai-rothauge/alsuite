@@ -97,6 +97,7 @@ int KMeans::initialize(DistMatrix const * data, MatrixXd const & local_data, uin
 }
 
 int KMeans::run(Parameters & output) {
+	log->info("Settings:");
 	train(output);
 }
 
@@ -339,12 +340,18 @@ int KMeans::kmeansPP(std::vector<MatrixXd> points, std::vector<double> weights, 
 
 int KMeans::train(Parameters & output) {
 
-	auto n = data->Height();
-	auto d = data->Width();
+	uint32_t command = 0;
 
-	if (world.rank() == 0) {
+	if (isDriver) {
 
-		log->info("Starting K-Means on {}x{} matrix", n, d);
+		int m, n;
+
+		world.recv(1, 0, m);
+		world.recv(1, 0, n);
+
+		world.barrier();
+
+		log->info("Starting K-Means on {}x{} matrix", m, n);
 		log->info("Settings:");
 		log->info("    num_centers = {}", num_centers);
 		log->info("    max_iterations = {}", max_iterations);
@@ -361,9 +368,9 @@ int KMeans::train(Parameters & output) {
 
 		/******** START of kmeans|| initialization ********/
 		std::mt19937 gen(seed);
-		std::uniform_int_distribution<unsigned long> dis(0, n-1);
+		std::uniform_int_distribution<unsigned long> dis(0, m-1);
 		uint32_t row_index = dis(gen);
-		std::vector<double> initialCenter(d);
+		std::vector<double> initialCenter(n);
 
 		boost::mpi::broadcast(world, row_index, 0); // tell the workers which row to use as initialization in kmeans||
 		world.barrier(); // wait for workers to return oversampled cluster centers and sizes
@@ -380,13 +387,13 @@ int KMeans::train(Parameters & output) {
 		std::vector<double> weights;
 		weights.reserve(cluster_sizes.size());
 		std::for_each(cluster_sizes.begin(), cluster_sizes.end(), [&weights](const uint32_t & cnt){ weights.push_back((double) cnt); });
-		MatrixXd cluster_centers(num_centers, d);
+		MatrixXd cluster_centers(num_centers, n);
 
 		kmeansPP(init_cluster_centers, weights, cluster_centers); // same number of maxIters as spark kmeans
 
 		log->info("Ran local k-means on the driver to determine starting cluster centers");
 
-		boost::mpi::broadcast(world, cluster_centers.data(), num_centers*d, 0);
+		boost::mpi::broadcast(world, cluster_centers.data(), num_centers*n, 0);
 		/******** END of kMeans|| initialization ********/
 
 		/******** START of Lloyd's algorithm iterations ********/
@@ -412,7 +419,7 @@ int KMeans::train(Parameters & output) {
 			boost::mpi::reduce(world, (uint32_t) 0, numChanged, std::plus<int>(), 0);
 			boost::mpi::reduce(world, zerosVector.data(), num_centers, parcluster_sizes.data(), std::plus<uint32_t>(), 0);
 			world.recv(1, boost::mpi::any_tag, centersMovedQ);
-			percentAssignmentsChanged = ((double) numChanged)/n;
+			percentAssignmentsChanged = ((double) numChanged)/m;
 
 			for(uint32_t cluster_index = 0; cluster_index < num_centers; cluster_index++) {
 				if (parcluster_sizes[cluster_index] == 0) {
@@ -441,8 +448,16 @@ int KMeans::train(Parameters & output) {
 		output.add_double("objective_value", objVal);
 	}
 	else {
+		int m = data->Height();
+		int n = data->Width();
 
-		int command;
+		if (world.rank() == 1) {
+			world.send(0, 0, m);
+			world.send(0, 0, n);
+		}
+
+		world.barrier();
+
 		boost::mpi::broadcast(world, command, 0);
 
 		if (command == 0) {
@@ -451,7 +466,7 @@ int KMeans::train(Parameters & output) {
 			// relayout matrix if needed so that it is in row-partitioned format
 			// cf http://libelemental.org/pub/slides/ICS13.pdf slide 19 for the cost of redistribution
 			auto distData = data->DistData();
-			DistMatrix * new_data = new El::DistMatrix<double, El::MD, El::STAR, El::ELEMENT>(n, d, grid);
+			DistMatrix * new_data = new El::DistMatrix<double, El::MD, El::STAR, El::ELEMENT>(m, n, *grid);
 			if (distData.colDist == El::MD && distData.rowDist == El::STAR) {
 				new_data = data;
 			} else {
@@ -465,27 +480,27 @@ int KMeans::train(Parameters & output) {
 			}
 
 			// TODO: store these as local matrices on the driver
-			DistMatrix * centers = new El::DistMatrix<double, El::MD, El::STAR, El::ELEMENT>(num_centers, d, grid);
-			DistMatrix * assignments = new El::DistMatrix<double, El::MD, El::STAR, El::ELEMENT>(n, 1, grid);
+			DistMatrix * centers = new El::DistMatrix<double, El::MD, El::STAR, El::ELEMENT>(num_centers, n, *grid);
+			DistMatrix * assignments = new El::DistMatrix<double, El::MD, El::STAR, El::ELEMENT>(m, 1, *grid);
 //			ENSURE(matrices.insert(std::make_pair(centersHandle, std::unique_ptr<DistMatrix>(centers))).second);
 //			ENSURE(matrices.insert(std::make_pair(assignmentsHandle, std::unique_ptr<DistMatrix>(assignments))).second);
 
-			MatrixXd local_data(data->LocalHeight(), d);
+			MatrixXd local_data(data->LocalHeight(), n);
 
 			// compute the map from local row indices to the row indices in the global matrix
 			// and populate the local data matrix
 
 			std::vector<El::Int> rowMap(local_data.rows());
-			for(El::Int row_index = 0; row_index < n; ++row_index)
+			for(El::Int row_index = 0; row_index < m; ++row_index)
 				if (data->IsLocalRow(row_index)) {
 					auto localrow_index = data->LocalRow(row_index);
 					rowMap[localrow_index] = row_index;
-					for(El::Int colIdx = 0; colIdx < d; ++colIdx)
+					for(El::Int colIdx = 0; colIdx < n; ++colIdx)
 						local_data(localrow_index, colIdx) = data->GetLocal(localrow_index, colIdx);
 				}
 
-			MatrixXd cluster_centers(num_centers, d);
-			MatrixXd old_cluster_centers(num_centers, d);
+			MatrixXd cluster_centers(num_centers, n);
+			MatrixXd old_cluster_centers(num_centers, n);
 
 			// initialize centers using kMeans||
 			uint32_t scale = 2*num_centers;
@@ -504,7 +519,7 @@ int KMeans::train(Parameters & output) {
 
 			update_assignments_and_counts(local_data, cluster_centers, counts.get(), row_assignments, objVal);
 
-			MatrixXd centersBuf(num_centers, d);
+			MatrixXd centersBuf(num_centers, n);
 			std::unique_ptr<uint32_t[]> countsBuf{new uint32_t[num_centers]};
 			uint32_t numChanged = 0;
 			old_cluster_centers = cluster_centers;
@@ -538,8 +553,8 @@ int KMeans::train(Parameters & output) {
 				for(uint32_t row_index = 0; row_index < local_data.rows(); ++row_index)
 					cluster_centers.row(row_assignments[row_index]) += local_data.row(row_index);
 
-				boost::mpi::all_reduce(peers, cluster_centers.data(), num_centers*d, centersBuf.data(), std::plus<double>());
-				std::memcpy(cluster_centers.data(), centersBuf.data(), num_centers*d*sizeof(double));
+				boost::mpi::all_reduce(peers, cluster_centers.data(), num_centers*n, centersBuf.data(), std::plus<double>());
+				std::memcpy(cluster_centers.data(), centersBuf.data(), num_centers*n*sizeof(double));
 				boost::mpi::all_reduce(peers, counts.get(), num_centers, countsBuf.get(), std::plus<uint32_t>());
 				std::memcpy(counts.get(), countsBuf.get(), num_centers*sizeof(uint32_t));
 
@@ -571,10 +586,10 @@ int KMeans::train(Parameters & output) {
 			assignments->ProcessQueues();
 
 			El::Zero(*centers);
-			centers->Reserve(centers->LocalHeight()*d);
+			centers->Reserve(centers->LocalHeight()*n);
 			for(uint32_t cluster_index = 0; cluster_index < num_centers; ++cluster_index)
 				if (centers->IsLocalRow(cluster_index)) {
-					for(El::Int colIdx = 0; colIdx < d; ++colIdx)
+					for(El::Int colIdx = 0; colIdx < n; ++colIdx)
 						centers->QueueUpdate(cluster_index, colIdx, cluster_centers(cluster_index, colIdx));
 				}
 			centers->ProcessQueues();

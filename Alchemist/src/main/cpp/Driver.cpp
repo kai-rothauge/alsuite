@@ -182,17 +182,23 @@ int Driver::process_input_parameters(Parameters & input_parameters) {
 
 int Driver::process_output_parameters(Parameters & output_parameters) {
 
-	int distmatrices_count;
-	world.recv(1, boost::mpi::any_tag, distmatrices_count);
+	unsigned distmatrices_count = 0;
+	world.recv(1, 0, distmatrices_count);
 
-	for (int i = 0; i < distmatrices_count; i++) {
+	MatrixHandle handle;
+
+	for (unsigned i = 0; i < distmatrices_count; i++) {
 		std::string name;
 		size_t num_rows, num_cols;
-		world.recv(1, boost::mpi::any_tag, name);
-		world.recv(1, boost::mpi::any_tag, num_rows);
-		world.recv(1, boost::mpi::any_tag, num_cols);
+		world.recv(1, 0, name);
+		world.recv(1, 0, num_rows);
+		world.recv(1, 0, num_cols);
 
-		output_parameters.add_matrixhandle(name, register_matrix(num_rows, num_cols).ID);
+		handle = register_matrix(num_rows, num_cols);
+
+		output_parameters.add_matrixhandle(name, handle.ID);
+
+		boost::mpi::broadcast(world, handle, 0);
 	}
 
 	return 0;
@@ -359,13 +365,12 @@ int Driver::get_matrix_rows() {
 
 	// Tell Spark to start asking for rows
 	output.write_int(0x1);
+
 	output.flush();
 
 	world.barrier();
-	log->info("Finished fetching matrix rows");
 
-	output.write_int(0x1);
-	output.flush();
+	log->info("Finished fetching matrix rows");
 
 	return 0;
 }

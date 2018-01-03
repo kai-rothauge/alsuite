@@ -90,7 +90,7 @@ object Alchemist {
       handle
     }
     catch {
-      case protocol: ProtocolException => System.err.println("Blech!")
+      case protocol: ProtocolException => System.err.println("Protocol Exception in 'Alchemist.getMatrixHandle'")
       stop()
       new MatrixHandle(0)
     }

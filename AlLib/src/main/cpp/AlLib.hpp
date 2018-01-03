@@ -37,7 +37,7 @@ using alchemist::Library;
 
 struct AlLib : Library, Logger {
 
-	AlLib(boost::mpi::communicator & world, boost::mpi::communicator & peers) : Library(world, peers), Logger() {}
+	AlLib(boost::mpi::communicator & world) : Library(world), Logger() {}
 
 	~AlLib() {}
 
@@ -47,8 +47,8 @@ struct AlLib : Library, Logger {
 };
 
 // Class factories
-extern "C" Library * create(boost::mpi::communicator & world, boost::mpi::communicator & peers) {
-    return new AlLib(world, peers);
+extern "C" Library * create(boost::mpi::communicator & world) {
+    return new AlLib(world);
 }
 
 extern "C" void destroy(Library * p) {

@@ -35,7 +35,7 @@ int Executor::load_library(std::string args) {
     		return -1;
     	}
 
-    	Library * library = create_library(world, peers);
+    	Library * library = create_library(world);
 
     	libraries.insert(std::make_pair(library_name, LibraryInfo(library_name, library_path, lib, library)));
 

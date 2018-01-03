@@ -42,14 +42,13 @@ namespace allib {
 
 class Clustering : public Logger {
 public:
-	Clustering(std::shared_ptr<spdlog::logger> _log, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) :
-		Logger(_log), world(_world), peers(_peers), grid(El::mpi::Comm(peers)) {}
+	Clustering(std::shared_ptr<spdlog::logger> _log, boost::mpi::communicator & _world, El::Grid * _grid) :
+		Logger(_log), world(_world), grid(_grid) {}
 
 	~Clustering() {}
 
 	boost::mpi::communicator & world;
-	boost::mpi::communicator & peers;
-	El::Grid grid;
+	El::Grid * grid;
 
 	void set_log(std::shared_ptr<spdlog::logger> & _log) {
 		log = _log;
@@ -59,16 +58,19 @@ public:
 		world = _world;
 	}
 
-	void set_peers(boost::mpi::communicator & _peers) {
-		peers = _peers;
+	void set_grid(El::Grid * _grid) {
+		grid = _grid;
 	}
 };
 
 class KMeans : public Clustering {
 public:
 //	KMeans();
-	KMeans(std::shared_ptr<spdlog::logger> _log, boost::mpi::communicator & _world, boost::mpi::communicator & _peers) :
-		Clustering(_log, _world, _peers) {}
+	KMeans(std::shared_ptr<spdlog::logger> _log, boost::mpi::communicator & _world, El::Grid * _grid) :
+		Clustering(_log, _world, _grid) {
+		isDriver = world.rank() == 0;
+		peers = world.split(isDriver ? 0 : 1);
+	}
 
 //	KMeans(uint32_t, uint32_t, double, std::string, uint32_t, uint64_t);
 
@@ -111,6 +113,9 @@ private:
 	uint64_t seed;							// Random seed used in driver and workers
 
 	DistMatrix * data;
+
+	bool isDriver;
+	boost::mpi::communicator peers;
 
 	int initialize_random();
 	int initialize_parallel(MatrixXd const &, uint32_t, MatrixXd &);

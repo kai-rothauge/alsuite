@@ -74,6 +74,8 @@ class SVDTest(spark: SparkSession, cp: ConsolePrinter) extends LinearAlgebraTest
   var NUM_COLS = ("num-cols", "Number of columns of the matrix",   "Int", true)
   val RANK     = ("rank",     "Number of leading singular values", "Int", true)
   
+  Alchemist.registerLibrary(AlLib.getRegistrationInfo)
+  
   parser.addOptionsToParser(NUM_ROWS, NUM_COLS, RANK)
   
   override def loadTestSettings(): Unit = {
@@ -147,6 +149,7 @@ class SVDTest(spark: SparkSession, cp: ConsolePrinter) extends LinearAlgebraTest
     val mat: RowMatrix = new RowMatrix(labelVecRDD.map(pair => pair._2))
     val svd: SingularValueDecomposition[RowMatrix, Matrix] = mat.computeSVD(rank, computeU=false)
     val v: Matrix = svd.V
+    sparkTime = System.nanoTime() - startTime
     cp.println("Time cost of Spark %s test:                               %6.4fs".format(longName, (System.nanoTime() - startTime)*1.0E-9))
     
     // Compute Approximation Error
@@ -180,14 +183,15 @@ class SVDTest(spark: SparkSession, cp: ConsolePrinter) extends LinearAlgebraTest
 //    cp.println("Time cost of converting Spark matrix to Alchemist matrix: %6.4fs".format((System.nanoTime() - t1)*1.0E-9))
     
 //    // Alchemist Truncated SVD
-    val (alU, alS, alV, alTimes) = alTruncatedSVD.compute(indexedMat, rank)
+    val (alU, alS, alV, alTimes0) = alTruncatedSVD.compute(indexedMat, rank)
+    alTimes = alTimes0
 
     // Alchemist Matrix to Local Matrix
     startTime = System.nanoTime()
     val arrV: Array[Array[Double]] =  alV.rows.map(row => row.vector.toArray).collect
     val d = arrV.size
     val matV: Matrix = Matrices.dense(rank, d, arrV.flatten)
-    cp.println("Time cost of Alchemist matrix to local matrix:            %6.4fs".format((System.nanoTime() - startTime)*1.0E-9))
+//    cp.println("Time cost of Alchemist matrix to local matrix:            %6.4fs".format((System.nanoTime() - startTime)*1.0E-9))
 //     cp.println("Number of rows of V: " + matV.numRows.toString)
 //     cp.println("Number of columns of V: " + matV.numCols.toString)
 //     cp.println(" ")
@@ -207,12 +211,12 @@ class SVDTest(spark: SparkSession, cp: ConsolePrinter) extends LinearAlgebraTest
   
   def printTimes(): Unit = {
     cp.println("Spark time cost:")
-    cp.println("    Spark matrix multiplication:                        %6.4fs".format(sparkTime*1.0E-9))
+    cp.println("    Spark truncated SVD:                                %6.4fs".format(sparkTime*1.0E-9))
     cp.println("  ")
     cp.println("Alchemist time costs:")
-    cp.println("    Converting Spark matrices to Alchemist matrices:    %6.4fs".format(alTimes(0)*1.0E-9))
-    cp.println("    Alchemist matrix multiplication:                    %6.4fs".format(alTimes(1)*1.0E-9))
-    cp.println("    Converting Alchemist matrix to Spark matrix:        %6.4fs".format(alTimes(2)*1.0E-9))
+    cp.println("    Converting Spark matrix to Alchemist matrix:        %6.4fs".format(alTimes(0)*1.0E-9))
+    cp.println("    Alchemist truncated SVD:                            %6.4fs".format(alTimes(1)*1.0E-9))
+    cp.println("    Converting Alchemist matrices to Spark matrices:    %6.4fs".format(alTimes(2)*1.0E-9))
     cp.println("    -----------------------------------------------------------------")
     cp.println("    Total:                                              %6.4fs".format((alTimes(0)+alTimes(1)+alTimes(2))*1.0E-9))
   }

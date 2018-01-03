@@ -330,7 +330,6 @@ int Worker::process_input_parameters(Parameters & input_parameters) {
 	auto matrixhandles = input_parameters.get_matrixhandles();
 
 	for (auto it = matrixhandles.begin(); it != matrixhandles.end(); it++ ) {
-		log->info("LSKKS {}", it->second->get_value());
 		MatrixHandle handle{it->second->get_value()};
 		input_parameters.add_distmatrix(it->first, matrices[handle].get());
 	}
@@ -342,14 +341,24 @@ int Worker::process_output_parameters(Parameters & output_parameters) {
 
 	auto distmatrices = output_parameters.get_distmatrices();
 
-	if (world.rank() == 1) {
-		world.send(0, boost::mpi::any_tag, distmatrices.size());
+	unsigned distmatrices_count = distmatrices.size();
+	world.send(0, 0, distmatrices_count);
 
-		for (auto it = distmatrices.begin(); it != distmatrices.end(); it++) {
-			world.send(0, boost::mpi::any_tag, it->first);
-			world.send(0, boost::mpi::any_tag, it->second->get_value()->Height());
-			world.send(0, boost::mpi::any_tag, it->second->get_value()->Width());
+	MatrixHandle handle;
+
+	for (auto it = distmatrices.begin(); it != distmatrices.end(); it++) {
+		if (world.rank() == 1) {
+			std::string name = it->first;
+			size_t num_rows = it->second->get_value()->Height();
+			size_t num_cols = it->second->get_value()->Width();
+			world.send(0, 0, name);
+			world.send(0, 0, num_rows);
+			world.send(0, 0, num_cols);
 		}
+
+		boost::mpi::broadcast(world, handle, 0);
+
+		matrices.insert(std::make_pair(handle, it->second->get_value()));
 	}
 
 	return 0;
@@ -361,10 +370,26 @@ int Worker::load_library() {
 	boost::mpi::broadcast(world, args, 0);
 
 	int status = Executor::load_library(args);
+	load_grid(args);
 
 	world.barrier();
 
 	return (status == 0) ? 0 : 1;
+}
+
+int Worker::load_grid(std::string args) {
+
+	typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
+	boost::char_separator<char> sep(" ");
+	tokenizer tok(args, sep);
+
+	tokenizer::iterator iter = tok.begin();
+
+	std::string library_name = *iter;
+
+	libraries.find(library_name)->second.lib->load_grid(&grid);
+
+	return 0;
 }
 
 int Worker::run_task() {

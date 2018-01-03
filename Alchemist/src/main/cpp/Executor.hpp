@@ -112,6 +112,8 @@ struct Worker : Executor {
 	int get_matrix_rows();
 	int read_HDF5();
 
+	int load_grid(std::string args);
+
 	int receive_matrix_blocks(MatrixHandle handle);
 	int send_matrix_rows(MatrixHandle handle, size_t num_cols, const std::vector<WorkerId> & layout,
 			const std::vector<uint64_t> & local_row_indices, const std::vector<double> & local_data);
