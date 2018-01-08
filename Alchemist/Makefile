@@ -1,7 +1,4 @@
 ALCHEMIST_PATH ?= $(ALSUITE_PATH)/Alchemist
-ELEMENTAL_PATH ?= $(HOME)/Software/Elemental
-EIGEN3_PATH ?= $(HOME)/Software/Eigen3
-SPDLOG_PATH ?= $(HOME)/Software/SPDLog
 
 include $(ELEMENTAL_PATH)/conf/ElVars
 
