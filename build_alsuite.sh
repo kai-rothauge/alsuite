@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-ifeq ($(shell uname), Linux)				# Poor heuristic to check if on Cori 
+if [ "$HOSTNAME" = "cori04" ]; then				# Not a fool-proof heuristic to check if on Cori 
 source ./build/Cori/build.sh
 else
 source ./build/MacOS/build.sh
-endif
+fi
