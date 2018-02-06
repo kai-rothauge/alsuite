@@ -25,15 +25,18 @@ class AlchemistContext(client: DriverClient) extends Serializable {
 
 object Alchemist {
   System.err.println("Launching Alchemist")
+  
+  def main(args: Array[String]) {
 
-  val driver = new Driver()
-  val client = driver.client
+    println("Working")
+  }
+
+  var driver: Driver = _
+  var client: DriverClient = _
   
   var sc: SparkContext = _
   
-  // Instances of `Alchemist` are not serializable, but `.context`
-  // has everything needed for RDD operations and is serializable.
-  val context = new AlchemistContext(client)
+  var context: AlchemistContext = _
   
   val libraries = collection.mutable.Map[String, String]()
 
@@ -45,6 +48,13 @@ object Alchemist {
   def listLibraries(): Unit = libraries foreach (x => println (x._1 + "-->" + x._2))
   
   def create(_sc: SparkContext) {
+    driver = new Driver()
+    client = driver.client
+    
+    // Instances of `Alchemist` are not serializable, but `.context`
+    // has everything needed for RDD operations and is serializable.
+    context = new AlchemistContext(client)
+    
     sc = _sc
   }
   

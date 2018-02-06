@@ -39,7 +39,9 @@ class Driver {
         new ProcessBuilder("true")
       }
       else {
-        new ProcessBuilder("mpirun", "-q", "-np", "3", sys.env("ALCHEMIST_EXE"), "localhost", 
+//        new ProcessBuilder("mpirun", "-q", "-np", "3", sys.env("ALCHEMIST_EXE"), "localhost", 
+//            listenSock.getLocalPort().toString())
+        new ProcessBuilder("mpiexec", "-np", "3", sys.env("ALCHEMIST_EXE"), "localhost", 
             listenSock.getLocalPort().toString())
       }
     }

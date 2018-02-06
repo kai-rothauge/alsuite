@@ -99,12 +99,11 @@ COMMON_OPTS = [
 # =========================================================== #
 
 # Clustering tests
-RUN_KMEANS_TEST              = True
+RUN_KMEANS_TEST              = False
 
 # Linear algebra tests
-RUN_SVD_TEST                 = False
+RUN_SVD_TEST                 = True
 RUN_MATRIX_MULT_TEST         = False
-
 
 # ------------------------------------------------------------#
 

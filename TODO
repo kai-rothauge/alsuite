@@ -1,0 +1,22 @@
+Still todo for Alchemist (2/6/2018):
+====================================
+
+Infrastructure:
+- Standalone Alchemist with unit testing
+- Running Alchemist from inside a container (Docker, Kubernetes, etc.)
+- Improved build, with and without CMake
+- Running on clusters
+
+Internal:
+- Include Alex's improvements (long overdue)
+- Support for sparse matrices
+- Support for ScaLAPACK
+- Improved communication using locality
+- Error handling
+- Self-diagnostics
+- Less hard-coding
+
+Documentation:
+- Readme
+- Tutorial
+- Technical write-up

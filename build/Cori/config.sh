@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Config file for Cori
+# Config file for building Alchemist on Cori
 
 export ALCHEMIST_ROOT=$SCRATCH/AlSuite/Alchemist
 export ALLIB_ROOT=$SCRATCH/AlSuite/AlLib

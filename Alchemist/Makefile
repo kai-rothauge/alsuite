@@ -25,9 +25,9 @@ ifeq ($(shell uname), Linux)
 LDFLAGS += -Wl,-rpath,/opt/intel/compilers_and_libraries_2016.3.210/linux/compiler/lib/intel64_lin/ -L/opt/intel/compilers_and_libraries_2016.3.210/linux/compiler/lib/intel64_lin/ -lirc
 endif
 
-ifeq ($(shell uname), Darwin)
-LDFLAGS += -lmpi
-endif
+#ifeq ($(shell uname), Darwin)
+#LDFLAGS += -lmpi
+#endif
 
 # some environments (e.g. Cori) require this to find boost
 ifdef BOOST_DIR

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Config file for MacOS
+# Config file for building Alchemist on MacOS
 
 export ALCHEMIST_ROOT=$HOME/Projects/AlSuite/Alchemist
 export ALLIB_ROOT=$HOME/Projects/AlSuite/AlLib

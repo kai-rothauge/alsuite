@@ -18,13 +18,14 @@ import breeze.linalg.{DenseVector => BDV, max, min, DenseMatrix => BDM, norm, di
 import breeze.numerics._
 // others
 import alchemist.Alchemist
-import alchemist.util.ConsolePrinter
-import altest.util.{DataGenerator, DataLoader}
 import allib.AlLib
 import allib.ml.clustering.{KMeans => alKMeans}
-import altest.PerfTest
 
-//import altest.util.{DataGenerator, DataLoader}
+// Import Alchemist
+import alchemist.Alchemist
+import alchemist.util.ConsolePrinter
+import altest.util.{DataGenerator, DataLoader}
+import altest.PerfTest
 
 import scala.math
 import java.io._
@@ -120,6 +121,7 @@ abstract class ClusteringTest(spark: SparkSession, cp: ConsolePrinter) extends P
 // K-Means Clustering
 class KMeansTest(spark: SparkSession, cp: ConsolePrinter) extends ClusteringTest(spark, cp) {
   
+  // Register library with Alchemist
   Alchemist.registerLibrary(AlLib.getRegistrationInfo)
 
   override def loadTestSettings(): Unit = {
@@ -191,7 +193,11 @@ class KMeansTest(spark: SparkSession, cp: ConsolePrinter) extends ClusteringTest
 //    val alMatkMeans = AlMatrix(al, indexedMat)
 //    cp.println("Time cost of converting Spark matrix to Alchemist matrix:         %6.4fs".format((System.nanoTime() - t1)*1.0E-9))
     
-    // K-Means Clustering by Alchemist
+    
+    // Create Alchemist matrix
+//    val alDataMat = Alchemist.getAlMatrix(dataMat)
+    
+    // K-Means clustering by Alchemist
     t1 = System.nanoTime()
     val (centers, assignments, numIters, alTimes0) = alKMeans.train(indexedMat, k, numIterations, threshold)
     alTimes = alTimes0

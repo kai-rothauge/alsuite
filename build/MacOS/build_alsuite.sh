@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 
-source ./config.sh
-
-echo "Building AlSuite for MacOS"
+source ./build/MacOS/config.sh
 
 export ALCHEMIST_JAR=$ALCHEMIST_ROOT/target/scala-2.11/alchemist-assembly-0.1.jar
 export ALCHEMIST_EXE=$ALCHEMIST_ROOT/target/alchemist
@@ -10,6 +8,13 @@ export ALCHEMIST_EXE=$ALCHEMIST_ROOT/target/alchemist
 export ALLIB_JAR=$ALLIB_ROOT/target/scala-2.11/allib-assembly-0.1.jar
 export ALLIB_DYLIB=$ALLIB_ROOT/target/allib.dylib
 
+echo " "
+echo "Building AlSuite for MacOS"
+echo "=========================="
+echo " "
+echo "Building Alchemist"
+echo "------------------"
+echo " "
 echo "Entered 'Alchemist/'"
 cd $ALCHEMIST_ROOT
 echo "Creating Alchemist jar:"
@@ -23,6 +28,10 @@ cd ..
 echo " "
 echo "Exited 'Alchemist/'"
 
+echo " "
+echo "Building AlLib"
+echo "--------------"
+echo " "
 echo "Entered 'AlLib/'"
 cd $ALLIB_ROOT
 mkdir -p lib/
@@ -40,6 +49,10 @@ make
 echo " "
 echo "Done with AlLib"
 
+echo " "
+echo "Building AlTest"
+echo "---------------"
+echo " "
 echo "Entered 'AlTest/'"
 cd $ALTEST_ROOT
 mkdir -p lib/
@@ -55,5 +68,5 @@ echo " "
 sbt -batch assembly
 
 echo " "
-echo "Build of Alchemist Suite completed"
-echo "Run 'start_altest.sh'"
+echo "Building process for AlSuite has completed"
+echo "If no issues occurred during building, configure 'AlTest/config/config.py' and then run 'start_altest.sh'"

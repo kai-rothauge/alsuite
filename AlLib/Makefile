@@ -83,9 +83,9 @@ $1/%.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $$< -o $$@
 endef
 
-.PHONY: all
+.PHONY: default
 
-all: checkdirs target/allib.dylib
+default: checkdirs target/allib.dylib
 
 target/allib.dylib: $(OBJ)
 	$(CXX) -shared $(CXXFLAGS) $^ -o $@ $(LDFLAGS)

@@ -6,10 +6,20 @@ int main(int argc, char *argv[]) {
 	boost::mpi::environment env;
 	boost::mpi::communicator world;
 
+//	MPI_Init(NULL, NULL);
+
 	El::Initialize();
+
+	int world_size;
+	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+	int world_rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
 	bool isDriver = world.rank() == 0;
 	boost::mpi::communicator peers = world.split(isDriver ? 0 : 1);
+
+//	std::cerr << world_rank << std::endl;
 
 	int status;
 
@@ -39,7 +49,7 @@ int main(int argc, char *argv[]) {
 			log->info("NERSC system assumed");
 			log->info("Searching for connection information in file {}", sockPath);
 
-			while(!exist_test(sockPath)) {
+			while (!exist_test(sockPath)) {
 				boost::this_thread::sleep_for(boost::chrono::milliseconds(50));
 			}
 			// now wait for a while for the connection file to be completely written, hopefully is enough time

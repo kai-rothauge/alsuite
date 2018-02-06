@@ -5,7 +5,7 @@ if [ "$HOSTNAME" = "cori04" ]; then			# Not a fool-proof heuristic to check if o
 source ./build/Cori/config.sh
 else
 source ./build/MacOS/config.sh
-endif
+fi
 
 export ALCHEMIST_JAR=$ALCHEMIST_ROOT/target/scala-2.11/alchemist-assembly-0.1.jar
 export ALCHEMIST_EXE=$ALCHEMIST_ROOT/target/alchemist
